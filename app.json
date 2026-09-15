@@ -7,6 +7,6 @@
     "requirements": ["root-filesystem", "audio"],
     "category": "games",
     "author": "PicOS",
-    "homepage": "https://github.com/jeffory/cdogs-picos",
+    "homepage": "https://github.com/jeffory/picos-cdogs",
     "min_firmware": "0.1.0"
 }

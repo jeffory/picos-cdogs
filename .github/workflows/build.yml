@@ -27,14 +27,14 @@ jobs:
 
       - name: Package
         run: |
-          rm -f cdogs-picos-*.zip
-          zip -9 -r "cdogs-picos-${GITHUB_REF_NAME//\//-}.zip" app.json main.elf data
+          rm -f picos-cdogs-*.zip
+          zip -9 -r "picos-cdogs-${GITHUB_REF_NAME//\//-}.zip" app.json main.elf data
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cdogs-picos
-          path: cdogs-picos-*.zip
+          name: picos-cdogs
+          path: picos-cdogs-*.zip
 
       - name: Check app.json version matches the tag
         if: startsWith(github.ref, 'refs/tags/v')
@@ -50,5 +50,5 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: cdogs-picos-*.zip
+          files: picos-cdogs-*.zip
           generate_release_notes: true
