@@ -141,7 +141,7 @@ void WindowContextPreRender(WindowContext *wc)
 
 void WindowContextPostRender(WindowContext *wc)
 {
-#ifdef PICOS
+#ifdef PICODECK
 	static int s_post_count = 0;
 	s_post_count++;
 	if (s_post_count <= 3) {

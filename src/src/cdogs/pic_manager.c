@@ -32,8 +32,8 @@
 #include "files.h"
 #include "log.h"
 
-#ifdef PICOS
-#include "picos_heap.h"
+#ifdef PICODECK
+#include "picodeck_heap.h"
 #endif
 
 #define GRAPHICS_DIR "graphics"
@@ -229,7 +229,7 @@ void PicManagerLoadDir(
 		goto bail;
 	}
 
-	/* PICOS: two passes — load this directory's files before recursing into
+	/* PICODECK: two passes — load this directory's files before recursing into
 	   subdirectories.  The SD returns entries in FAT (creation) order with
 	   the huge chars/ sprite tree first; with the image-load heap budget in
 	   LoadImgToSurface, a depth-first walk would spend the entire budget on
@@ -246,12 +246,12 @@ void PicManagerLoadDir(
 		}
 		for (; dir.has_next; tinydir_next(&dir))
 		{
-#ifdef PICOS
+#ifdef PICODECK
 			/* Each readfile stats via a FatFS file-open (linear directory
 			   scan) — hundreds of entries per pass take multiple seconds
 			   with no frame rendered, so feed the watchdog per entry. */
-			extern void picos_asset_load_tick(void);
-			picos_asset_load_tick();
+			extern void picodeck_asset_load_tick(void);
+			picodeck_asset_load_tick();
 #endif
 			tinydir_file file;
 			if (tinydir_readfile(&dir, &file) == -1)
@@ -311,14 +311,14 @@ void PicManagerLoad(PicManager *pm)
 	PicManagerLoadDir(pm, buf, NULL, pm->pics, pm->sprites, false);
 	GetDataFilePath(buf, GRAPHICS_HD_DIR);
 	PicManagerLoadDir(pm, buf, NULL, pm->pics, pm->sprites, true);
-#ifdef PICOS
-	picos_gfx_report("picmanagerload");
+#ifdef PICODECK
+	picodeck_gfx_report("picmanagerload");
 	// Amendment B: observe the chars/ tri-state format split (pic.c's
 	// PicLoadClassifyCharsFormat) from a normal load without per-item
 	// tracing -- counts are per-frame, so spritesheets contribute more than
 	// once, but the per-FILE expectation (~109/6/21) should still show
 	// through since most chars/ pics are single-frame.
-	picos_charsfmt_report("picmanagerload");
+	picodeck_charsfmt_report("picmanagerload");
 #endif
 }
 
@@ -337,7 +337,7 @@ static int MaybeAddKeyPicName(any_t data, any_t item);
 static int MaybeAddDoorPicName(any_t data, any_t item);
 static void AfterAdd(PicManager *pm)
 {
-	PICOS_LOADLOG("AfterAdd: enter\n");
+	PICODECK_LOADLOG("AfterAdd: enter\n");
 	FindStyleSprites(
 		pm, &pm->headPartNames[HEAD_PART_HAIR], MaybeAddHairSpriteName);
 	FindStyleSprites(
@@ -352,7 +352,7 @@ static void AfterAdd(PicManager *pm)
 	FindStylePics(pm, &pm->exitStyleNames, MaybeAddExitPicName);
 	FindStylePics(pm, &pm->doorStyleNames, MaybeAddDoorPicName);
 	FindStylePics(pm, &pm->keyStyleNames, MaybeAddKeyPicName);
-	PICOS_LOADLOG("AfterAdd: exit\n");
+	PICODECK_LOADLOG("AfterAdd: exit\n");
 }
 static int CompareStyleNames(const void *v1, const void *v2);
 static void StylesClear(CArray *styles)
@@ -677,7 +677,7 @@ static void PicManagerGenerateMaskedPic(
 	Pic *original = PicManagerGetPic(pm, name);
 	if (original == NULL) return;
 
-#ifdef PICOS
+#ifdef PICODECK
 	// Style pics (wall/tile/door/exits/keys) load as RGB565 with a packed
 	// Channels map (Task 3); the masking loop below reads that map via
 	// PicChannelGet, which only makes sense on an RGB565 original. CASSERT
@@ -775,33 +775,33 @@ void PicManagerGenerateMaskedStylePic(
 	PicManagerGenerateMaskedPic(pm, buf, mask, maskAlt, noAltMask);
 }
 
-// Stage 2D Task 3: this whole function is unreachable on PICOS. Task 2 made
+// Stage 2D Task 3: this whole function is unreachable on PICODECK. Task 2 made
 // all five draw_actor.c wrappers (GetHeadPic/GetHeadPartPic/GetBodyPic/
 // GetLegsPic/GetGunPic -- the function's only callers anywhere in the
-// codebase) call PicManagerGetSprites directly on PICOS and recolour at blit
-// time via PicosBlitSetCharColors instead of baking a per-CharColors
+// codebase) call PicManagerGetSprites directly on PICODECK and recolour at blit
+// time via PicodeckBlitSetCharColors instead of baking a per-CharColors
 // sprite-sheet copy through here, which is the entire reason this function
-// existed. Desktop keeps the real bake body (below, #ifndef PICOS) verbatim
+// existed. Desktop keeps the real bake body (below, #ifndef PICODECK) verbatim
 // -- a GPU renderer has no per-pixel blit hook to recolour from base sprites,
 // so it still needs a pre-baked, real-colour copy per CharColors. Any future
-// change to chars/ recolouring must touch BOTH paths (see the PICOS branch
+// change to chars/ recolouring must touch BOTH paths (see the PICODECK branch
 // note above GetHeadPic, draw_actor.c). The bake body's own Amendment-B
 // tri-state LA8/RGB565/ARGB8888 input check (removed here, it was never
 // desktop's concern in the first place -- desktop's PicLoad always forces
 // chars/ pics to PIC_FMT_ARGB8888, see pic.c, so the ambiguity that check
-// guarded against is a PICOS-only condition) is compiled out along with the
-// rest of the bake rather than left as unreachable dead code in the PICOS
+// guarded against is a PICODECK-only condition) is compiled out along with the
+// rest of the bake rather than left as unreachable dead code in the PICODECK
 // binary; the AfterAdd(pm) per-bake rescan disappears with it too.
 const NamedSprites *PicManagerGetCharSprites(
 	PicManager *pm, const char *name, const CharColors *colors)
 {
-#ifdef PICOS
-	// Reaching here on PICOS is an invariant violation, not a normal path --
+#ifdef PICODECK
+	// Reaching here on PICODECK is an invariant violation, not a normal path --
 	// every real caller was moved off this function in Task 2. Log loudly and
 	// fall back to the base (uncoloured) sprites rather than crash or
 	// silently bake.
 	LOG(LM_MAIN, LL_ERROR,
-		"PicManagerGetCharSprites reached on PICOS for '%s' -- unreachable "
+		"PicManagerGetCharSprites reached on PICODECK for '%s' -- unreachable "
 		"since Stage 2D Task 2; returning uncoloured sprites",
 		name);
 	return PicManagerGetSprites(pm, name);

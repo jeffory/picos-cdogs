@@ -1,12 +1,12 @@
 /*
-    PicOS SDL2 Software Renderer Implementation
-    Provides real SDL rendering for C-Dogs on PicOS 320×320 display.
+    PicoDeck SDL2 Software Renderer Implementation
+    Provides real SDL rendering for C-Dogs on PicoDeck 320×320 display.
     Resolution: 320×240, letterboxed (40px top/bottom black bars).
 */
-#include "picos_sdl_impl.h"
+#include "picodeck_sdl_impl.h"
 #include "os.h"
-#include "picos_heap.h"
-#include "picos_charcolors.h"
+#include "picodeck_heap.h"
+#include "picodeck_charcolors.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -19,11 +19,11 @@
 #define LETTERBOX_Y   ((DISPLAY_H - GAME_H) / 2)  /* 40 */
 
 /* ── Globals ─────────────────────────────────────────────────── */
-static PicosRenderer s_renderer;
+static PicodeckRenderer s_renderer;
 static int s_renderer_valid = 0;
 
 /* Event queue */
-static SDL_Event s_event_queue[PICOS_EVENT_QUEUE_SIZE];
+static SDL_Event s_event_queue[PICODECK_EVENT_QUEUE_SIZE];
 static int s_event_head = 0;
 static int s_event_tail = 0;
 
@@ -32,8 +32,8 @@ static Uint8 s_key_state[SDL_NUM_SCANCODES];
 
 /* Deferred release queue for character keys — see the long rationale
  * comment above SDL_PumpEvents for the frame-boundary model. */
-#define PICOS_CHAR_RELEASE_QUEUE_SIZE 8
-static SDL_Scancode s_char_release_queue[PICOS_CHAR_RELEASE_QUEUE_SIZE];
+#define PICODECK_CHAR_RELEASE_QUEUE_SIZE 8
+static SDL_Scancode s_char_release_queue[PICODECK_CHAR_RELEASE_QUEUE_SIZE];
 static int s_char_release_count = 0;
 /* True iff the previous SDL_PumpEvents call left the event queue empty —
  * the correct (and only) signal that the next call is the first one of a
@@ -55,7 +55,7 @@ static SDL_PixelFormat s_argb8888_format = {
 };
 
 /* ── Helper: get current render target ───────────────────────── */
-static inline uint16_t *get_target(PicosRenderer *r, int *w, int *h) {
+static inline uint16_t *get_target(PicodeckRenderer *r, int *w, int *h) {
     if (r->render_target) {
         *w = r->render_target->w;
         *h = r->render_target->h;
@@ -64,7 +64,7 @@ static inline uint16_t *get_target(PicosRenderer *r, int *w, int *h) {
            (ARGB8888/LA8, and RGB565 pics too) are only ever blit sources —
            fail loudly rather than reinterpret one as a render target if
            that ever changes. */
-        if (r->render_target->fmt != PICOS_TEXFMT_RGB565) return NULL;
+        if (r->render_target->fmt != PICODECK_TEXFMT_RGB565) return NULL;
         return (uint16_t *)r->render_target->pixels;
     }
     *w = r->fb_w;
@@ -81,21 +81,21 @@ static inline int clamp_i(int v, int lo, int hi) {
 static inline uint16_t blend_pixel(uint16_t dst, uint32_t src_r, uint32_t src_g,
                                    uint32_t src_b, uint32_t src_a) {
     if (src_a == 0) return dst;
-    if (src_a == 255) return picos_pack565(src_r, src_g, src_b);
+    if (src_a == 255) return picodeck_pack565(src_r, src_g, src_b);
     const uint32_t inv_a = 255 - src_a;
     uint32_t dr, dg, db;
-    picos_unpack565(dst, &dr, &dg, &db);
+    picodeck_unpack565(dst, &dr, &dg, &db);
     const uint32_t or_ = (src_r * src_a + dr * inv_a) / 255;
     const uint32_t og  = (src_g * src_a + dg * inv_a) / 255;
     const uint32_t ob  = (src_b * src_a + db * inv_a) / 255;
-    return picos_pack565(or_, og, ob);
+    return picodeck_pack565(or_, og, ob);
 }
 
 /* ================================================================
    SDL INIT / QUIT
    ================================================================ */
 
-void picos_sdl_init(const struct PicoCalcAPI *api) {
+void picodeck_sdl_init(const struct PicoCalcAPI *api) {
     (void)api;
     memset(&s_renderer, 0, sizeof(s_renderer));
     memset(s_key_state, 0, sizeof(s_key_state));
@@ -161,17 +161,17 @@ void SDL_DestroyRenderer(SDL_Renderer *r) {
 }
 
 int SDL_SetRenderDrawColor(SDL_Renderer *r, Uint8 red, Uint8 g, Uint8 b, Uint8 a) {
-    PicosRenderer *pr = (PicosRenderer *)r;
+    PicodeckRenderer *pr = (PicodeckRenderer *)r;
     pr->draw_r = red; pr->draw_g = g; pr->draw_b = b; pr->draw_a = a;
     return 0;
 }
 
 int SDL_RenderClear(SDL_Renderer *r) {
-    PicosRenderer *pr = (PicosRenderer *)r;
+    PicodeckRenderer *pr = (PicodeckRenderer *)r;
     int tw, th;
     uint16_t *target = get_target(pr, &tw, &th);
     if (!target) return -1;
-    const uint16_t color = picos_pack565(pr->draw_r, pr->draw_g, pr->draw_b);
+    const uint16_t color = picodeck_pack565(pr->draw_r, pr->draw_g, pr->draw_b);
     const int count = tw * th;
     /* Fill with the actual draw colour (opaque black, not transparent) */
     for (int i = 0; i < count; i++) target[i] = color;
@@ -179,31 +179,31 @@ int SDL_RenderClear(SDL_Renderer *r) {
 }
 
 int SDL_RenderSetLogicalSize(SDL_Renderer *r, int w, int h) {
-    PicosRenderer *pr = (PicosRenderer *)r;
+    PicodeckRenderer *pr = (PicodeckRenderer *)r;
     pr->logical_w = w;
     pr->logical_h = h;
     return 0;
 }
 
 void SDL_RenderGetLogicalSize(SDL_Renderer *r, int *w, int *h) {
-    PicosRenderer *pr = (PicosRenderer *)r;
+    PicodeckRenderer *pr = (PicodeckRenderer *)r;
     if (w) *w = pr->logical_w;
     if (h) *h = pr->logical_h;
 }
 
 int SDL_SetRenderTarget(SDL_Renderer *r, SDL_Texture *t) {
-    PicosRenderer *pr = (PicosRenderer *)r;
-    pr->render_target = (PicosTexture *)t;
+    PicodeckRenderer *pr = (PicodeckRenderer *)r;
+    pr->render_target = (PicodeckTexture *)t;
     return 0;
 }
 
 SDL_Texture *SDL_GetRenderTarget(SDL_Renderer *r) {
-    PicosRenderer *pr = (PicosRenderer *)r;
+    PicodeckRenderer *pr = (PicodeckRenderer *)r;
     return (SDL_Texture *)pr->render_target;
 }
 
 int SDL_SetRenderDrawBlendMode(SDL_Renderer *r, SDL_BlendMode m) {
-    PicosRenderer *pr = (PicosRenderer *)r;
+    PicodeckRenderer *pr = (PicodeckRenderer *)r;
     pr->draw_blend_mode = m;
     return 0;
 }
@@ -219,7 +219,7 @@ int SDL_GetRendererInfo(SDL_Renderer *r, SDL_RendererInfo *info) {
     (void)r;
     if (info) {
         memset(info, 0, sizeof(*info));
-        info->name = "picos";
+        info->name = "picodeck";
         info->flags = SDL_RENDERER_SOFTWARE | SDL_RENDERER_TARGETTEXTURE;
         info->num_texture_formats = 1;
         info->texture_formats[0] = SDL_PIXELFORMAT_RGB565;
@@ -230,12 +230,12 @@ int SDL_GetRendererInfo(SDL_Renderer *r, SDL_RendererInfo *info) {
 }
 
 /* ================================================================
-   RENDER PRESENT — RGB565 framebuffer → PicOS display
+   RENDER PRESENT — RGB565 framebuffer → PicoDeck display
    ================================================================ */
 
 void SDL_RenderPresent(SDL_Renderer *r) {
-    PicosRenderer *pr = (PicosRenderer *)r;
-    if (!pr->framebuf || !g_picos_api) return;
+    PicodeckRenderer *pr = (PicodeckRenderer *)r;
+    if (!pr->framebuf || !g_picodeck_api) return;
 
     /* Debug: count non-black pixels over the first few frames */
     static int s_present_count = 0;
@@ -265,12 +265,12 @@ void SDL_RenderPresent(SDL_Renderer *r) {
     /* The framebuffer is already host-order RGB565, which is what
        display->drawImageNN consumes — it byte-swaps to the panel's
        big-endian order itself.  No conversion loop, no staging buffer. */
-    g_picos_api->display->drawImageNN(0, LETTERBOX_Y, pr->framebuf,
+    g_picodeck_api->display->drawImageNN(0, LETTERBOX_Y, pr->framebuf,
                                       pr->fb_w, pr->fb_h, 1);
-    g_picos_api->display->flush();
+    g_picodeck_api->display->flush();
 
-    /* Let PicOS process system events */
-    g_picos_api->sys->poll();
+    /* Let PicoDeck process system events */
+    g_picodeck_api->sys->poll();
 }
 
 /* ================================================================
@@ -281,12 +281,12 @@ SDL_Texture *SDL_CreateTexture(SDL_Renderer *r, Uint32 format, int access,
                                int w, int h) {
     (void)r; (void)format;  /* the shim picks the format; see below */
     if (w <= 0 || h <= 0) return NULL;
-    PicosTexture *t = calloc(1, sizeof(PicosTexture));
+    PicodeckTexture *t = calloc(1, sizeof(PicodeckTexture));
     if (!t) return NULL;
     /* Every shim-owned texture is RGB565, including render targets:
        get_target() returns uint16_t* unconditionally now. */
-    t->fmt = PICOS_TEXFMT_RGB565;
-    const size_t bpp = (t->fmt == PICOS_TEXFMT_RGB565) ? 2u : 4u;
+    t->fmt = PICODECK_TEXFMT_RGB565;
+    const size_t bpp = (t->fmt == PICODECK_TEXFMT_RGB565) ? 2u : 4u;
     t->w = w;
     t->h = h;
     t->pitch = w * (int)bpp;
@@ -307,10 +307,10 @@ SDL_Texture *SDL_CreateTexture(SDL_Renderer *r, Uint32 format, int access,
     {
         uint16_t *px = (uint16_t *)t->pixels;
         const size_t count = (size_t)w * h;
-        for (size_t i = 0; i < count; i++) px[i] = PICOS_RGB565_CKEY;
+        for (size_t i = 0; i < count; i++) px[i] = PICODECK_RGB565_CKEY;
     }
     t->owns_pixels = true;
-    g_picos_pic_tex_bytes += (size_t)w * h * bpp;
+    g_picodeck_pic_tex_bytes += (size_t)w * h * bpp;
     return (SDL_Texture *)t;
 }
 
@@ -332,24 +332,24 @@ SDL_Texture *SDL_CreateTexture(SDL_Renderer *r, Uint32 format, int access,
    a measured ~21/136 chars/ files (mostly small gun/hat sheets) DO still
    reach this function as ARGB8888. Case 0 is therefore a real, exercised
    path again, not just a defensive default. */
-SDL_Texture *PicosTextureBorrow(void *pixels, int w, int h, uint8_t pic_fmt) {
+SDL_Texture *PicodeckTextureBorrow(void *pixels, int w, int h, uint8_t pic_fmt) {
     if (!pixels || w <= 0 || h <= 0) return NULL;
-    PicosTexture *t = calloc(1, sizeof(PicosTexture));
+    PicodeckTexture *t = calloc(1, sizeof(PicodeckTexture));
     if (!t) return NULL;
     t->w = w;
     t->h = h;
     switch (pic_fmt) {
     case 1: /* PIC_FMT_RGB565 */
-        t->fmt = PICOS_TEXFMT_RGB565;
+        t->fmt = PICODECK_TEXFMT_RGB565;
         t->pitch = w * 2;
         break;
     case 2: /* PIC_FMT_LA8 */
-        t->fmt = PICOS_TEXFMT_LA8;
+        t->fmt = PICODECK_TEXFMT_LA8;
         t->pitch = w * 2;
         break;
     case 0: /* PIC_FMT_ARGB8888 */
     default:
-        t->fmt = PICOS_TEXFMT_ARGB8888;
+        t->fmt = PICODECK_TEXFMT_ARGB8888;
         t->pitch = w * 4;
         break;
     }
@@ -373,11 +373,11 @@ SDL_Texture *SDL_CreateTextureFromSurface(SDL_Renderer *r, SDL_Surface *s) {
 }
 
 void SDL_DestroyTexture(SDL_Texture *t) {
-    PicosTexture *pt = (PicosTexture *)t;
+    PicodeckTexture *pt = (PicodeckTexture *)t;
     if (!pt) return;
     if (pt->owns_pixels) {
-        const size_t bpp = (pt->fmt == PICOS_TEXFMT_RGB565) ? 2u : 4u;
-        g_picos_pic_tex_bytes -= (size_t)pt->w * pt->h * bpp;
+        const size_t bpp = (pt->fmt == PICODECK_TEXFMT_RGB565) ? 2u : 4u;
+        g_picodeck_pic_tex_bytes -= (size_t)pt->w * pt->h * bpp;
         free(pt->pixels);
     }
     free(pt);
@@ -385,7 +385,7 @@ void SDL_DestroyTexture(SDL_Texture *t) {
 
 int SDL_UpdateTexture(SDL_Texture *t, const SDL_Rect *rect, const void *pixels,
                       int pitch) {
-    PicosTexture *pt = (PicosTexture *)t;
+    PicodeckTexture *pt = (PicodeckTexture *)t;
     if (!pt || !pt->pixels || !pixels) return -1;
 
     /* Pump the OS from the blit path as well as the present path. A screen
@@ -393,15 +393,15 @@ int SDL_UpdateTexture(SDL_Texture *t, const SDL_Rect *rect, const void *pixels,
        the present, so SDL_RenderPresent's poll never runs — the player-select
        screen was measured drawing 11x/s and updating 31x/s for 70s with no
        poll at all, which starves the watchdog (Core 1 relays only while
-       Core 0's heartbeat is under 60s old, see PicOS main.c) and resets the
+       Core 0's heartbeat is under 60s old, see PicoDeck main.c) and resets the
        device out from under a perfectly healthy app. Rate-limited because
        poll() does an I2C keyboard read. */
-    if (g_picos_api && g_picos_api->sys) {
+    if (g_picodeck_api && g_picodeck_api->sys) {
         static uint32_t s_last_poll_ms = 0;
-        const uint32_t now = g_picos_api->sys->getTimeMs();
+        const uint32_t now = g_picodeck_api->sys->getTimeMs();
         if (now - s_last_poll_ms >= 100) {
             s_last_poll_ms = now;
-            g_picos_api->sys->poll();
+            g_picodeck_api->sys->poll();
         }
     }
 
@@ -422,11 +422,11 @@ int SDL_UpdateTexture(SDL_Texture *t, const SDL_Rect *rect, const void *pixels,
         int copy_w = dw;
         if (dx + copy_w > pt->w) copy_w = pt->w - dx;
         if (copy_w <= 0) continue;
-        if (pt->fmt == PICOS_TEXFMT_RGB565) {
+        if (pt->fmt == PICODECK_TEXFMT_RGB565) {
             uint16_t *dst_row =
                 (uint16_t *)pt->pixels + (size_t)ty * pt->w + dx;
             for (int i = 0; i < copy_w; i++)
-                dst_row[i] = picos_argb_to_565(src_row[i]);
+                dst_row[i] = picodeck_argb_to_565(src_row[i]);
         } else {
             uint32_t *dst_row =
                 (uint32_t *)pt->pixels + (size_t)ty * pt->w + dx;
@@ -438,11 +438,11 @@ int SDL_UpdateTexture(SDL_Texture *t, const SDL_Rect *rect, const void *pixels,
 
 int SDL_LockTexture(SDL_Texture *t, const SDL_Rect *rect, void **pixels,
                     int *pitch) {
-    PicosTexture *pt = (PicosTexture *)t;
+    PicodeckTexture *pt = (PicodeckTexture *)t;
     if (!pt || !pt->pixels) return -1;
     const int x = rect ? rect->x : 0;
     const int y = rect ? rect->y : 0;
-    const size_t bpp = (pt->fmt == PICOS_TEXFMT_RGB565) ? 2u : 4u;
+    const size_t bpp = (pt->fmt == PICODECK_TEXFMT_RGB565) ? 2u : 4u;
     if (pixels)
         *pixels = (uint8_t *)pt->pixels + ((size_t)y * pt->w + x) * bpp;
     if (pitch) *pitch = pt->pitch;
@@ -451,26 +451,26 @@ int SDL_LockTexture(SDL_Texture *t, const SDL_Rect *rect, void **pixels,
 }
 
 void SDL_UnlockTexture(SDL_Texture *t) {
-    PicosTexture *pt = (PicosTexture *)t;
+    PicodeckTexture *pt = (PicodeckTexture *)t;
     if (pt) pt->locked = false;
 }
 
 int SDL_SetTextureBlendMode(SDL_Texture *t, SDL_BlendMode m) {
-    PicosTexture *pt = (PicosTexture *)t;
+    PicodeckTexture *pt = (PicodeckTexture *)t;
     if (!pt) return -1;
     pt->blend_mode = m;
     return 0;
 }
 
 int SDL_SetTextureAlphaMod(SDL_Texture *t, Uint8 a) {
-    PicosTexture *pt = (PicosTexture *)t;
+    PicodeckTexture *pt = (PicodeckTexture *)t;
     if (!pt) return -1;
     pt->a_mod = a;
     return 0;
 }
 
 int SDL_SetTextureColorMod(SDL_Texture *t, Uint8 r, Uint8 g, Uint8 b) {
-    PicosTexture *pt = (PicosTexture *)t;
+    PicodeckTexture *pt = (PicodeckTexture *)t;
     if (!pt) return -1;
     pt->r_mod = r; pt->g_mod = g; pt->b_mod = b;
     return 0;
@@ -478,9 +478,9 @@ int SDL_SetTextureColorMod(SDL_Texture *t, Uint8 r, Uint8 g, Uint8 b) {
 
 int SDL_QueryTexture(SDL_Texture *t, Uint32 *format, int *access,
                      int *w, int *h) {
-    PicosTexture *pt = (PicosTexture *)t;
+    PicodeckTexture *pt = (PicodeckTexture *)t;
     if (!pt) return -1;
-    if (format) *format = (pt->fmt == PICOS_TEXFMT_RGB565)
+    if (format) *format = (pt->fmt == PICODECK_TEXFMT_RGB565)
                               ? SDL_PIXELFORMAT_RGB565
                               : SDL_PIXELFORMAT_ARGB8888;
     if (access) *access = pt->access;
@@ -494,14 +494,14 @@ int SDL_QueryTexture(SDL_Texture *t, Uint32 *format, int *access,
    ================================================================ */
 
 /* ── Per-blit CharColors LUT (Stage 2D, Task 1) ──────────────────
-   Dormant until a caller (Task 2) calls PicosBlitSetCharColors.  Built by
+   Dormant until a caller (Task 2) calls PicodeckBlitSetCharColors.  Built by
    calling the real CharColorsGetChannelMask once per index so the
    channel-index -> CharColors-field mapping stays single-source (blit.c);
    never re-derived or duplicated here. */
 static color_t s_char_lut[256];
 static bool s_char_colors_active = false;
 
-void PicosBlitSetCharColors(const CharColors *colors) {
+void PicodeckBlitSetCharColors(const CharColors *colors) {
     if (!colors) {
         s_char_colors_active = false;
         return;
@@ -521,8 +521,8 @@ int SDL_RenderCopyEx(SDL_Renderer *r, SDL_Texture *t, const SDL_Rect *srcrect,
                      const SDL_Rect *dstrect, double angle, const SDL_Point *center,
                      SDL_RendererFlip flip) {
     (void)angle; (void)center; /* rotation not supported yet */
-    PicosRenderer *pr = (PicosRenderer *)r;
-    PicosTexture *pt = (PicosTexture *)t;
+    PicodeckRenderer *pr = (PicodeckRenderer *)r;
+    PicodeckTexture *pt = (PicodeckTexture *)t;
     if (!pr || !pt || !pt->pixels) return -1;
 
     int tw, th;
@@ -548,8 +548,8 @@ int SDL_RenderCopyEx(SDL_Renderer *r, SDL_Texture *t, const SDL_Rect *srcrect,
     uint32_t am = pt->a_mod;
     bool do_color_mod = (rm != 255 || gm != 255 || bm != 255);
     bool do_blend = (pt->blend_mode == SDL_BLENDMODE_BLEND);
-    const bool src565 = (pt->fmt == PICOS_TEXFMT_RGB565);
-    const bool srcLA8 = (pt->fmt == PICOS_TEXFMT_LA8);
+    const bool src565 = (pt->fmt == PICODECK_TEXFMT_RGB565);
+    const bool srcLA8 = (pt->fmt == PICODECK_TEXFMT_LA8);
     /* RGB565 and LA8 are both 2 bytes/px, laid out w uint16_t's per row --
        the row-pointer arithmetic below is identical for either, only the
        per-pixel decode differs. */
@@ -585,7 +585,7 @@ int SDL_RenderCopyEx(SDL_Renderer *r, SDL_Texture *t, const SDL_Rect *srcrect,
             uint32_t pa, pr_, pg, pb;
             if (src565) {
                 const uint16_t s = src_row16[src_x];
-                if (s == PICOS_RGB565_CKEY) {
+                if (s == PICODECK_RGB565_CKEY) {
                     /* The colour key stands in for an ARGB alpha-0 pixel,
                        whose RGB channels were also zero (g->buf is memset
                        to 0).  Decoding it to (0,0,0,0) makes both branches
@@ -593,7 +593,7 @@ int SDL_RenderCopyEx(SDL_Renderer *r, SDL_Texture *t, const SDL_Rect *srcrect,
                        leaves dst untouched, opaque writes black. */
                     pa = 0; pr_ = 0; pg = 0; pb = 0;
                 } else {
-                    picos_unpack565(s, &pr_, &pg, &pb);
+                    picodeck_unpack565(s, &pr_, &pg, &pb);
                     pa = 255;
                 }
             } else if (srcLA8) {
@@ -660,7 +660,7 @@ int SDL_RenderCopyEx(SDL_Renderer *r, SDL_Texture *t, const SDL_Rect *srcrect,
             if (do_blend) {
                 dst_row[tx] = blend_pixel(dst_row[tx], pr_, pg, pb, pa);
             } else {
-                dst_row[tx] = picos_pack565(pr_, pg, pb);
+                dst_row[tx] = picodeck_pack565(pr_, pg, pb);
             }
         }
     }
@@ -668,7 +668,7 @@ int SDL_RenderCopyEx(SDL_Renderer *r, SDL_Texture *t, const SDL_Rect *srcrect,
 }
 
 int SDL_RenderFillRect(SDL_Renderer *r, const SDL_Rect *rect) {
-    PicosRenderer *pr = (PicosRenderer *)r;
+    PicodeckRenderer *pr = (PicodeckRenderer *)r;
     int tw, th;
     uint16_t *target = get_target(pr, &tw, &th);
     if (!target) return -1;
@@ -682,7 +682,7 @@ int SDL_RenderFillRect(SDL_Renderer *r, const SDL_Rect *rect) {
     x1 = clamp_i(x1, 0, tw);
     y1 = clamp_i(y1, 0, th);
 
-    const uint16_t color = picos_pack565(pr->draw_r, pr->draw_g, pr->draw_b);
+    const uint16_t color = picodeck_pack565(pr->draw_r, pr->draw_g, pr->draw_b);
 
     if (pr->draw_blend_mode == SDL_BLENDMODE_BLEND && pr->draw_a < 255) {
         for (int y = y0; y < y1; y++)
@@ -708,7 +708,7 @@ int SDL_RenderDrawRect(SDL_Renderer *r, const SDL_Rect *rect) {
 }
 
 int SDL_RenderDrawPoint(SDL_Renderer *r, int x, int y) {
-    PicosRenderer *pr = (PicosRenderer *)r;
+    PicodeckRenderer *pr = (PicodeckRenderer *)r;
     int tw, th;
     uint16_t *target = get_target(pr, &tw, &th);
     if (!target || x < 0 || y < 0 || x >= tw || y >= th) return -1;
@@ -717,7 +717,7 @@ int SDL_RenderDrawPoint(SDL_Renderer *r, int x, int y) {
         target[y * tw + x] = blend_pixel(target[y * tw + x],
             pr->draw_r, pr->draw_g, pr->draw_b, pr->draw_a);
     } else {
-        target[y * tw + x] = picos_pack565(pr->draw_r, pr->draw_g, pr->draw_b);
+        target[y * tw + x] = picodeck_pack565(pr->draw_r, pr->draw_g, pr->draw_b);
     }
     return 0;
 }
@@ -875,8 +875,8 @@ void SDL_GetRGBA(Uint32 pixel, const SDL_PixelFormat *format,
    ================================================================ */
 
 Uint32 SDL_GetTicks(void) {
-    if (g_picos_api && g_picos_api->sys)
-        return (Uint32)g_picos_api->sys->getTimeMs();
+    if (g_picodeck_api && g_picodeck_api->sys)
+        return (Uint32)g_picodeck_api->sys->getTimeMs();
     return 0;
 }
 
@@ -889,9 +889,9 @@ Uint64 SDL_GetPerformanceFrequency(void) {
 }
 
 void SDL_Delay(Uint32 ms) {
-    if (!g_picos_api || !g_picos_api->sys) return;
-    uint32_t start = g_picos_api->sys->getTimeMs();
-    /* Pump the OS while waiting.  sys->poll() is what feeds PicOS's 10s
+    if (!g_picodeck_api || !g_picodeck_api->sys) return;
+    uint32_t start = g_picodeck_api->sys->getTimeMs();
+    /* Pump the OS while waiting.  sys->poll() is what feeds PicoDeck's 10s
        hardware watchdog, and in this port the only other caller is
        SDL_RenderPresent — so any stretch that waits without drawing is a
        stretch with nothing feeding the watchdog.  game_loop.c's idle path
@@ -904,11 +904,11 @@ void SDL_Delay(Uint32 ms) {
        ten I2C transactions a second. */
     static uint32_t s_last_poll_ms = 0;
     for (;;) {
-        const uint32_t now = g_picos_api->sys->getTimeMs();
+        const uint32_t now = g_picodeck_api->sys->getTimeMs();
         if (now - start >= ms) break;
         if (now - s_last_poll_ms >= 100) {
             s_last_poll_ms = now;
-            g_picos_api->sys->poll();
+            g_picodeck_api->sys->poll();
         }
     }
 }
@@ -917,15 +917,15 @@ void SDL_Delay(Uint32 ms) {
    EVENTS / INPUT
    ================================================================ */
 
-static void picos_push_event(const SDL_Event *ev) {
-    int next = (s_event_head + 1) % PICOS_EVENT_QUEUE_SIZE;
+static void picodeck_push_event(const SDL_Event *ev) {
+    int next = (s_event_head + 1) % PICODECK_EVENT_QUEUE_SIZE;
     if (next == s_event_tail) return; /* queue full, drop */
     s_event_queue[s_event_head] = *ev;
     s_event_head = next;
 }
 
-/* Map PicOS key codes to SDL scancodes */
-static SDL_Scancode picos_key_to_scancode(int key) {
+/* Map PicoDeck key codes to SDL scancodes */
+static SDL_Scancode picodeck_key_to_scancode(int key) {
     if (key >= 'a' && key <= 'z') return (SDL_Scancode)(SDL_SCANCODE_A + (key - 'a'));
     if (key >= 'A' && key <= 'Z') return (SDL_Scancode)(SDL_SCANCODE_A + (key - 'A'));
     if (key >= '1' && key <= '9') return (SDL_Scancode)(SDL_SCANCODE_1 + (key - '1'));
@@ -1011,7 +1011,7 @@ static SDL_Keycode scancode_to_keycode(SDL_Scancode sc) {
  * press edge), by design.
  */
 
-static void picos_flush_char_release_queue(void) {
+static void picodeck_flush_char_release_queue(void) {
     for (int i = 0; i < s_char_release_count; i++) {
         SDL_Scancode sc = s_char_release_queue[i];
         SDL_Event ev;
@@ -1021,35 +1021,35 @@ static void picos_flush_char_release_queue(void) {
         ev.key.keysym.scancode = sc;
         ev.key.keysym.sym = scancode_to_keycode(sc);
         s_key_state[sc] = 0;
-        picos_push_event(&ev);
+        picodeck_push_event(&ev);
     }
     s_char_release_count = 0;
 }
 
 void SDL_PumpEvents(void) {
-    if (!g_picos_api || !g_picos_api->input) return;
+    if (!g_picodeck_api || !g_picodeck_api->input) return;
 
     /* Only release chars queued by a PREVIOUS frame's char loop -- gated on
      * s_pump_was_idle so this can't fire mid-drain within the same frame
      * that pressed them. See the long comment above. */
     if (s_pump_was_idle) {
-        picos_flush_char_release_queue();
+        picodeck_flush_char_release_queue();
     }
 
-    /* PicOS exit request (system menu "Exit App" or serial `exit` command).
+    /* PicoDeck exit request (system menu "Exit App" or serial `exit` command).
      * shouldExit() is self-clearing, so translate it into an SDL_QUIT event
      * that C-Dogs' event loop already knows how to unwind cleanly. */
-    if (g_picos_api->sys->shouldExit()) {
+    if (g_picodeck_api->sys->shouldExit()) {
         SDL_Event quit_ev;
         memset(&quit_ev, 0, sizeof(quit_ev));
         quit_ev.type = SDL_QUIT;
-        picos_push_event(&quit_ev);
+        picodeck_push_event(&quit_ev);
     }
 
-    /* Poll PicOS button states and generate key events */
+    /* Poll PicoDeck button states and generate key events */
     /* Check directional buttons */
     static uint32_t prev_buttons = 0;
-    uint32_t buttons = g_picos_api->input->getButtons();
+    uint32_t buttons = g_picodeck_api->input->getButtons();
 
     /* Button-to-scancode mapping */
     struct { uint32_t btn; SDL_Scancode sc; } btn_map[] = {
@@ -1079,7 +1079,7 @@ void SDL_PumpEvents(void) {
             ev.key.keysym.scancode = btn_map[i].sc;
             ev.key.keysym.sym = scancode_to_keycode(btn_map[i].sc);
             s_key_state[btn_map[i].sc] = 1;
-            picos_push_event(&ev);
+            picodeck_push_event(&ev);
         } else if (was && !now) {
             /* Key released */
             SDL_Event ev;
@@ -1089,14 +1089,14 @@ void SDL_PumpEvents(void) {
             ev.key.keysym.scancode = btn_map[i].sc;
             ev.key.keysym.sym = scancode_to_keycode(btn_map[i].sc);
             s_key_state[btn_map[i].sc] = 0;
-            picos_push_event(&ev);
+            picodeck_push_event(&ev);
         }
     }
 
     /* Also check character input for letter keys */
     char ch;
-    while ((ch = g_picos_api->input->getChar()) != 0) {
-        SDL_Scancode sc = picos_key_to_scancode(ch);
+    while ((ch = g_picodeck_api->input->getChar()) != 0) {
+        SDL_Scancode sc = picodeck_key_to_scancode(ch);
         if (sc != SDL_SCANCODE_UNKNOWN && sc != SDL_SCANCODE_UP &&
             sc != SDL_SCANCODE_DOWN && sc != SDL_SCANCODE_LEFT &&
             sc != SDL_SCANCODE_RIGHT && sc != SDL_SCANCODE_RETURN &&
@@ -1112,9 +1112,9 @@ void SDL_PumpEvents(void) {
             ev.key.keysym.scancode = sc;
             ev.key.keysym.sym = scancode_to_keycode(sc);
             s_key_state[sc] = 1;
-            picos_push_event(&ev);
+            picodeck_push_event(&ev);
 
-            if (s_char_release_count < PICOS_CHAR_RELEASE_QUEUE_SIZE) {
+            if (s_char_release_count < PICODECK_CHAR_RELEASE_QUEUE_SIZE) {
                 s_char_release_queue[s_char_release_count++] = sc;
             } else {
                 /* Queue full (more distinct chars than we can defer for one
@@ -1127,7 +1127,7 @@ void SDL_PumpEvents(void) {
                 up_ev.key.keysym.scancode = sc;
                 up_ev.key.keysym.sym = scancode_to_keycode(sc);
                 s_key_state[sc] = 0;
-                picos_push_event(&up_ev);
+                picodeck_push_event(&up_ev);
             }
         }
     }
@@ -1137,7 +1137,7 @@ void SDL_PumpEvents(void) {
     /* Record whether THIS call leaves the queue empty, for the next call's
      * flush decision -- see the long comment above SDL_PumpEvents. Must be
      * the last thing this function does (after every possible
-     * picos_push_event above). */
+     * picodeck_push_event above). */
     s_pump_was_idle = (s_event_head == s_event_tail);
 }
 
@@ -1145,7 +1145,7 @@ int SDL_PollEvent(SDL_Event *event) {
     SDL_PumpEvents();
     if (s_event_head == s_event_tail) return 0;
     if (event) *event = s_event_queue[s_event_tail];
-    s_event_tail = (s_event_tail + 1) % PICOS_EVENT_QUEUE_SIZE;
+    s_event_tail = (s_event_tail + 1) % PICODECK_EVENT_QUEUE_SIZE;
     return 1;
 }
 
@@ -1161,7 +1161,7 @@ Uint32 SDL_GetMouseState(int *x, int *y) {
 }
 
 /* ================================================================
-   RWOPS — File I/O through PicOS filesystem
+   RWOPS — File I/O through PicoDeck filesystem
    ================================================================ */
 
 typedef struct {
@@ -1169,15 +1169,15 @@ typedef struct {
     void *fd;   /* pcfile_t */
     int size;
     int pos;
-} PicosRWops;
+} PicodeckRWops;
 
-static Sint64 picos_rw_size(SDL_RWops *ctx) {
-    PicosRWops *rw = (PicosRWops *)ctx;
+static Sint64 picodeck_rw_size(SDL_RWops *ctx) {
+    PicodeckRWops *rw = (PicodeckRWops *)ctx;
     return rw->size;
 }
 
-static Sint64 picos_rw_seek(SDL_RWops *ctx, Sint64 offset, int whence) {
-    PicosRWops *rw = (PicosRWops *)ctx;
+static Sint64 picodeck_rw_seek(SDL_RWops *ctx, Sint64 offset, int whence) {
+    PicodeckRWops *rw = (PicodeckRWops *)ctx;
     int newpos;
     switch (whence) {
         case RW_SEEK_SET: newpos = (int)offset; break;
@@ -1187,61 +1187,61 @@ static Sint64 picos_rw_seek(SDL_RWops *ctx, Sint64 offset, int whence) {
     }
     if (newpos < 0) newpos = 0;
     rw->pos = newpos;
-    /* Seek in PicOS FS */
-    if (g_picos_api && g_picos_api->fs)
-        g_picos_api->fs->seek(rw->fd, newpos);
+    /* Seek in PicoDeck FS */
+    if (g_picodeck_api && g_picodeck_api->fs)
+        g_picodeck_api->fs->seek(rw->fd, newpos);
     return newpos;
 }
 
-static size_t picos_rw_read(SDL_RWops *ctx, void *ptr, size_t size, size_t maxnum) {
-    PicosRWops *rw = (PicosRWops *)ctx;
-    if (!g_picos_api || !g_picos_api->fs) return 0;
+static size_t picodeck_rw_read(SDL_RWops *ctx, void *ptr, size_t size, size_t maxnum) {
+    PicodeckRWops *rw = (PicodeckRWops *)ctx;
+    if (!g_picodeck_api || !g_picodeck_api->fs) return 0;
     size_t total = size * maxnum;
     int avail = rw->size - rw->pos;
     if ((int)total > avail) total = avail > 0 ? avail : 0;
     if (total == 0) return 0;
-    int got = g_picos_api->fs->read(rw->fd, ptr, total);
+    int got = g_picodeck_api->fs->read(rw->fd, ptr, total);
     if (got <= 0) return 0;
     rw->pos += got;
     return got / size;
 }
 
-static size_t picos_rw_write(SDL_RWops *ctx, const void *ptr, size_t size,
+static size_t picodeck_rw_write(SDL_RWops *ctx, const void *ptr, size_t size,
                               size_t num) {
-    PicosRWops *rw = (PicosRWops *)ctx;
-    if (!g_picos_api || !g_picos_api->fs) return 0;
+    PicodeckRWops *rw = (PicodeckRWops *)ctx;
+    if (!g_picodeck_api || !g_picodeck_api->fs) return 0;
     size_t total = size * num;
-    int written = g_picos_api->fs->write(rw->fd, ptr, total);
+    int written = g_picodeck_api->fs->write(rw->fd, ptr, total);
     if (written <= 0) return 0;
     rw->pos += written;
     return written / size;
 }
 
-static int picos_rw_close(SDL_RWops *ctx) {
-    PicosRWops *rw = (PicosRWops *)ctx;
-    if (g_picos_api && g_picos_api->fs && rw->fd >= 0)
-        g_picos_api->fs->close(rw->fd);
+static int picodeck_rw_close(SDL_RWops *ctx) {
+    PicodeckRWops *rw = (PicodeckRWops *)ctx;
+    if (g_picodeck_api && g_picodeck_api->fs && rw->fd >= 0)
+        g_picodeck_api->fs->close(rw->fd);
     free(rw);
     return 0;
 }
 
 SDL_RWops *SDL_RWFromFile(const char *file, const char *mode) {
-    if (!g_picos_api || !g_picos_api->fs || !file) return NULL;
+    if (!g_picodeck_api || !g_picodeck_api->fs || !file) return NULL;
 
-    void *fd = g_picos_api->fs->open(file, mode);
+    void *fd = g_picodeck_api->fs->open(file, mode);
     if (!fd) return NULL;
 
-    PicosRWops *rw = calloc(1, sizeof(PicosRWops));
-    if (!rw) { g_picos_api->fs->close(fd); return NULL; }
+    PicodeckRWops *rw = calloc(1, sizeof(PicodeckRWops));
+    if (!rw) { g_picodeck_api->fs->close(fd); return NULL; }
 
     rw->fd = fd;
     rw->pos = 0;
-    rw->size = g_picos_api->fs->fsize(fd);
-    rw->ops.size = picos_rw_size;
-    rw->ops.seek = picos_rw_seek;
-    rw->ops.read = picos_rw_read;
-    rw->ops.write = picos_rw_write;
-    rw->ops.close = picos_rw_close;
+    rw->size = g_picodeck_api->fs->fsize(fd);
+    rw->ops.size = picodeck_rw_size;
+    rw->ops.seek = picodeck_rw_seek;
+    rw->ops.read = picodeck_rw_read;
+    rw->ops.write = picodeck_rw_write;
+    rw->ops.close = picodeck_rw_close;
 
     return &rw->ops;
 }

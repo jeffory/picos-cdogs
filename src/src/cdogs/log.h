@@ -76,8 +76,8 @@ void LogTerminate(void);
 #ifndef _WIN32
 #define __pragma(x)
 #endif
-#ifdef PICOS
-// PicOS: suppress all logging to save stack and code size.
+#ifdef PICODECK
+// PicoDeck: suppress all logging to save stack and code size.
 // Errors are non-fatal in C-Dogs; missing sprites use defaults.
 #define LOG(_module, _level, ...) ((void)0)
 #elif defined(_MSC_VER)

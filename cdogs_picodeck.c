@@ -1,11 +1,11 @@
 /*
-    C-Dogs SDL PicOS Port — Entry Point
-    Phase 1: Boot to main menu on PicOS 320x320 display
+    C-Dogs SDL PicoDeck Port — Entry Point
+    Phase 1: Boot to main menu on PicoDeck 320x320 display
 */
 #include "app_abi.h"
 #include "os.h"
-#include "picos_heap.h"
-#include "picos_sdl_impl.h"
+#include "picodeck_heap.h"
+#include "picodeck_sdl_impl.h"
 #include <string.h>
 #include <setjmp.h>
 
@@ -34,12 +34,12 @@
 #include "mainmenu.h"
 #include "game_loop.h"
 
-/* Global PicOS state (referenced by stubs.c) */
-const PicoCalcAPI *g_picos_api;
+/* Global PicoDeck state (referenced by stubs.c) */
+const PicoCalcAPI *g_picodeck_api;
 char g_app_dir[128];
 jmp_buf g_exit_jmp;
 
-void picos_main(const PicoCalcAPI *api,
+void picodeck_main(const PicoCalcAPI *api,
                 const char *app_dir,
                 const char *app_id,
                 const char *app_name)
@@ -47,14 +47,14 @@ void picos_main(const PicoCalcAPI *api,
     (void)app_id;
     (void)app_name;
 
-    g_picos_api = api;
+    g_picodeck_api = api;
     strncpy(g_app_dir, app_dir, sizeof(g_app_dir) - 1);
     g_app_dir[sizeof(g_app_dir) - 1] = '\0';
 
     api->sys->log("CDOGS: Starting Phase 1...");
 
-    /* Init PicOS SDL layer */
-    picos_sdl_init(api);
+    /* Init PicoDeck SDL layer */
+    picodeck_sdl_init(api);
 
     /* If C-Dogs calls exit(), longjmp back here */
     int exit_code = setjmp(g_exit_jmp);
@@ -114,17 +114,17 @@ void picos_main(const PicoCalcAPI *api,
         api->sys->log("CDOGS: PicManagerLoadDir returned for graphics_hd");
     }
     api->sys->log("CDOGS: PicManager loaded");
-#ifdef PICOS
+#ifdef PICODECK
     // Amendment B (cdogs Stage 2C pic-formats plan): observe the chars/
     // tri-state format split (pic.c's PicLoadClassifyCharsFormat) from a
-    // normal load. NOTE this native PICOS entry point calls
+    // normal load. NOTE this native PICODECK entry point calls
     // PicManagerLoadDir directly (above), bypassing pic_manager.c's
     // PicManagerLoad() wrapper entirely -- the equivalent report call left
     // there for the desktop build's benefit never actually runs on this
     // target, so it is called again here where the native build's own
     // graphics-tree scan really completes.
-    picos_gfx_report("picmanagerload");
-    picos_charsfmt_report("picmanagerload");
+    picodeck_gfx_report("picmanagerload");
+    picodeck_charsfmt_report("picmanagerload");
 #endif
 
     LoadingScreenDraw(&gLoadingScreen, "Loading autosaves...", 0.1f);

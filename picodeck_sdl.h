@@ -1,5 +1,5 @@
 /*
-    PicOS SDL2 Type Shim for C-Dogs SDL
+    PicoDeck SDL2 Type Shim for C-Dogs SDL
     Provides type definitions and stub functions so game code compiles
     without the real SDL2 library.
 */
@@ -625,7 +625,7 @@ typedef enum {
 typedef Sint16 SDL_JoystickPowerLevel;
 typedef struct { int unused; } SDL_JoystickGUID;
 
-/* ── Functions implemented in picos_sdl_impl.c ────────────────── */
+/* ── Functions implemented in picodeck_sdl_impl.c ────────────────── */
 
 /* Init / Quit — still stubs */
 static inline int SDL_Init(Uint32 flags) { (void)flags; return 0; }
@@ -635,7 +635,7 @@ static inline void SDL_Quit(void) {}
 static inline Uint32 SDL_WasInit(Uint32 flags) { (void)flags; return 0; }
 
 /* Error — still stubs */
-static inline const char *SDL_GetError(void) { return "PicOS SDL shim"; }
+static inline const char *SDL_GetError(void) { return "PicoDeck SDL shim"; }
 static inline int SDL_SetError(const char *fmt, ...) { (void)fmt; return -1; }
 static inline void SDL_ClearError(void) {}
 
@@ -689,9 +689,9 @@ static inline SDL_bool SDL_RenderIsClipEnabled(SDL_Renderer *r) { (void)r; retur
 
 /* Texture — implemented */
 extern SDL_Texture *SDL_CreateTexture(SDL_Renderer *r, Uint32 f, int a, int w, int h);
-/* PicOS extension: texture over caller-owned pixels (no copy). pic_fmt
+/* PicoDeck extension: texture over caller-owned pixels (no copy). pic_fmt
    mirrors cdogs' PicFormat enum (pic.h): 0=ARGB8888, 1=RGB565, 2=LA8. */
-extern SDL_Texture *PicosTextureBorrow(void *pixels, int w, int h, uint8_t pic_fmt);
+extern SDL_Texture *PicodeckTextureBorrow(void *pixels, int w, int h, uint8_t pic_fmt);
 extern SDL_Texture *SDL_CreateTextureFromSurface(SDL_Renderer *r, SDL_Surface *s);
 extern void SDL_DestroyTexture(SDL_Texture *t);
 extern int SDL_SetTextureBlendMode(SDL_Texture *t, SDL_BlendMode m);
@@ -827,7 +827,7 @@ static inline int SDL_GetCurrentDisplayMode(int d, SDL_DisplayMode *m) {
 }
 
 /* Misc */
-static inline const char *SDL_GetPlatform(void) { return "PicOS"; }
+static inline const char *SDL_GetPlatform(void) { return "PicoDeck"; }
 static inline int SDL_SetHint(const char *n, const char *v) { (void)n; (void)v; return 1; }
 static inline char *SDL_GetBasePath(void) { return NULL; }
 static inline char *SDL_GetPrefPath(const char *o, const char *a) { (void)o; (void)a; return NULL; }
@@ -963,4 +963,4 @@ static inline int SDL_ConvertAudio(SDL_AudioCVT *cvt) { (void)cvt; return 0; }
    so we just add the field to the union. Actually we can't change it.
    Instead, let's ensure it compiles. */
 
-/* end of picos_sdl.h */
+/* end of picodeck_sdl.h */

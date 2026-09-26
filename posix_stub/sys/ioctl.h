@@ -1,4 +1,4 @@
-/* PicOS sys/ioctl.h stub — no terminal ioctls on bare metal */
+/* PicoDeck sys/ioctl.h stub — no terminal ioctls on bare metal */
 #pragma once
 
 #define TIOCGWINSZ 0

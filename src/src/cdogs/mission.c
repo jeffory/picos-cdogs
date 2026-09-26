@@ -70,8 +70,8 @@
 #include "pickup.h"
 #include "triggers.h"
 
-#ifdef PICOS
-#include "picos_heap.h"
+#ifdef PICODECK
+#include "picodeck_heap.h"
 #endif
 
 color_t colorDoor = {172, 172, 172, 255};
@@ -546,8 +546,8 @@ void MissionBegin(struct MissionOptions *m, const NGameBegin gb)
 	}
 	m->time = gb.MissionTime;
 	m->pickupTime = 0;
-#ifdef PICOS
-	picos_gfx_report("missionstart");
+#ifdef PICODECK
+	picodeck_gfx_report("missionstart");
 #endif
 }
 

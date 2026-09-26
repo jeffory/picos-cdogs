@@ -1,5 +1,5 @@
 /*
-    Minimal nanopb stub for C-Dogs SDL on PicOS.
+    Minimal nanopb stub for C-Dogs SDL on PicoDeck.
     Provides just enough type definitions for msg.pb.h to parse.
 */
 #pragma once

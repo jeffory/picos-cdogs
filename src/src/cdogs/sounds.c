@@ -214,10 +214,10 @@ void SoundLoadDir(map_t sounds, const char *path, const char *prefix)
 	}
 	for (; dir.has_next; tinydir_next(&dir))
 	{
-#ifdef PICOS
+#ifdef PICODECK
 		/* Feed the watchdog per entry (see pic_manager.c). */
-		extern void picos_asset_load_tick(void);
-		picos_asset_load_tick();
+		extern void picodeck_asset_load_tick(void);
+		picodeck_asset_load_tick();
 #endif
 		tinydir_file file;
 		if (tinydir_readfile(&dir, &file) == -1)

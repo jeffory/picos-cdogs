@@ -1,7 +1,7 @@
 /*
-    C-Dogs SDL PicOS Port — Networking stubs
+    C-Dogs SDL PicoDeck Port — Networking stubs
     Provides empty implementations for net functions referenced by game code.
-    C-Dogs networking (ENet) is not available on PicOS.
+    C-Dogs networking (ENet) is not available on PicoDeck.
 */
 #include <stdbool.h>
 #include <stdint.h>

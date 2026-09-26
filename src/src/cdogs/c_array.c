@@ -58,7 +58,7 @@ void CArrayReserve(CArray *a, size_t capacity)
 	const size_t size = capacity * a->elemSize;
 	if (size)
 	{
-#ifdef PICOS
+#ifdef PICODECK
 		void *new_data = realloc(a->data, size);
 		if (!new_data) return;  // OOM: keep existing data, don't crash
 		a->data = new_data;
@@ -92,7 +92,7 @@ void *CArrayPushBack(CArray *a, const void *elem)
 {
 	CASSERT(a->elemSize > 0, "array has not been initialised");
 	GrowIfFull(a);
-#ifdef PICOS
+#ifdef PICODECK
 	if (a->size >= a->capacity) return NULL;  // OOM: couldn't grow
 #endif
 	a->size++;
@@ -105,7 +105,7 @@ void *CArrayInsert(CArray *a, const size_t idx, const void *elem)
 {
 	CASSERT(a->elemSize > 0, "array has not been initialised");
 	GrowIfFull(a);
-#ifdef PICOS
+#ifdef PICODECK
 	if (a->size >= a->capacity) return NULL;  // OOM: couldn't grow
 #endif
 	a->size++;
@@ -149,7 +149,7 @@ void CArrayResize(CArray *a, const size_t size, const void *value)
 
 void *CArrayGet(const CArray *a, const size_t idx)
 {
-#ifdef PICOS
+#ifdef PICODECK
 	if (a == NULL || a->elemSize == 0 || idx >= a->size) return NULL;
 #else
 	CASSERT(a->elemSize > 0, "array has not been initialised");

@@ -72,8 +72,8 @@ extern bool gFalse;
 #define CHALT()
 #endif
 
-#ifdef PICOS
-// PicOS: suppress CASSERT — gracefully degrade instead of crashing.
+#ifdef PICODECK
+// PicoDeck: suppress CASSERT — gracefully degrade instead of crashing.
 // Missing sprites/data cause frequent assertion failures that are non-fatal.
 // Uses bare block (not do{}while(0)) because some callers omit trailing semicolon.
 #define CASSERT(_x, _errmsg) { (void)(_x); }
@@ -95,7 +95,7 @@ extern bool gFalse;
 
 // Even though malloc(0) may return NULL, we don't account for it for
 // simplicity and to allow code linters to work better
-#ifdef PICOS
+#ifdef PICODECK
 #define _CCHECKALLOC(_func, _var, _size)                                      \
 	{                                                                         \
 		if (_var == NULL && (_size) > 0)                                      \

@@ -51,7 +51,7 @@ static void LoadFile(CArray *strings, const char *filename)
 	if (file == NULL)
 	{
 		/* prefixes/suffixes/suffixnames.txt were dropped from the shipped
-		   PicOS data set in the original port commit (e6eb5347), so this
+		   PicoDeck data set in the original port commit (e6eb5347), so this
 		   fopen fails on a fresh install and in the simulator. Without this
 		   guard fgets() is handed a NULL FILE*, which on RP2350 does not
 		   fault — there is no MMU and address 0 is readable flash — so it

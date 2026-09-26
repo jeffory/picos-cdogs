@@ -1,8 +1,8 @@
-# C-Dogs SDL PicOS Port — Implementation Plan
+# C-Dogs SDL PicoDeck Port — Implementation Plan
 
 ## Context
 
-Porting C-Dogs SDL (overhead run-and-gun shooter) to PicOS. Two deliverables:
+Porting C-Dogs SDL (overhead run-and-gun shooter) to PicoDeck. Two deliverables:
 1. **C-Dogs app** (`apps/cdogs/`) — native ELF game port
 2. **MOD player** — firmware-integrated reusable music player for all apps
 
@@ -85,7 +85,7 @@ mod_player_update();   // alongside mp3_player_update(), fileplayer_update()
 
 ### DOOM integration
 
-DOOM currently uses OPL synthesis for music (`opl.c`, `mus_player.c`). The firmware MOD player opens the door for DOOM to optionally play MOD-format music packs via `g_api.modplayer`, similar to community music replacements. This would require minimal changes to `i_picos_sound.c` — call `g_api.modplayer->load()/play()` instead of OPL when a `.mod` file is present for a given music lump.
+DOOM currently uses OPL synthesis for music (`opl.c`, `mus_player.c`). The firmware MOD player opens the door for DOOM to optionally play MOD-format music packs via `g_api.modplayer`, similar to community music replacements. This would require minimal changes to `i_picodeck_sound.c` — call `g_api.modplayer->load()/play()` instead of OPL when a `.mod` file is present for a given music lump.
 
 ---
 
@@ -117,23 +117,23 @@ cd apps/cdogs/src
 apps/cdogs/
 ├── Makefile          # cross-compile (copy from apps/doom/Makefile)
 ├── linker.ld         # PIE linker script (copy from apps/doom/linker.ld)
-├── cdogs_picos.c     # entry point (picos_main)
+├── cdogs_picodeck.c     # entry point (picodeck_main)
 ├── stubs.c           # newlib stubs (_sbrk, _open, etc.)
-├── picos_sdl.h       # minimal SDL type shims
-├── picos_grafx.c     # display HAL (ARGB8888 → RGB565 framebuffer)
-├── picos_input.c     # input HAL (BTN_* → CMD_*)
-├── picos_sound.c     # audio HAL (stub initially, wire up in Phase 3)
-├── app.json          # {"id":"com.picos.cdogs", "name":"C-Dogs", ...}
+├── picodeck_sdl.h       # minimal SDL type shims
+├── picodeck_grafx.c     # display HAL (ARGB8888 → RGB565 framebuffer)
+├── picodeck_input.c     # input HAL (BTN_* → CMD_*)
+├── picodeck_sound.c     # audio HAL (stub initially, wire up in Phase 3)
+├── app.json          # {"id":"net.picodeck.cdogs", "name":"C-Dogs", ...}
 ├── src/              # stripped cdogs-sdl source tree
 └── data/             # game assets (sprites, maps, sounds) — on SD card
 ```
 
-### Step 0.3: Create `picos_sdl.h` (SDL type shim)
+### Step 0.3: Create `picodeck_sdl.h` (SDL type shim)
 
 Minimal header providing SDL type definitions so game logic compiles without SDL:
 
 ```c
-// picos_sdl.h — minimal SDL type shim for PicOS
+// picodeck_sdl.h — minimal SDL type shim for PicoDeck
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
@@ -158,11 +158,11 @@ typedef void SDL_Surface;
 #define SDL_BLENDMODE_NONE 0
 
 // Stub macros for SDL functions that become no-ops
-#define SDL_GetTicks() picos_get_ticks()
-#define SDL_Delay(ms) picos_delay(ms)
+#define SDL_GetTicks() picodeck_get_ticks()
+#define SDL_Delay(ms) picodeck_delay(ms)
 
-uint32_t picos_get_ticks(void);
-void picos_delay(uint32_t ms);
+uint32_t picodeck_get_ticks(void);
+void picodeck_delay(uint32_t ms);
 ```
 
 ### Step 0.4: Create `stubs.c`
@@ -173,21 +173,21 @@ Copy `apps/doom/stubs.c` verbatim, adjust heap size:
 #define HEAP_SIZE (3072 * 1024)  // 3MB (up from DOOM's 2.5MB)
 ```
 
-### Step 0.5: Create `cdogs_picos.c` (entry point skeleton)
+### Step 0.5: Create `cdogs_picodeck.c` (entry point skeleton)
 
 ```c
 #include "app_abi.h"
 #include "os.h"
 #include <setjmp.h>
 
-const PicoCalcAPI *g_picos_api;
+const PicoCalcAPI *g_picodeck_api;
 char g_app_dir[128];
 jmp_buf g_exit_jmp;
 
-void picos_main(const PicoCalcAPI *api, const char *app_dir,
+void picodeck_main(const PicoCalcAPI *api, const char *app_dir,
                 const char *app_id, const char *app_name)
 {
-    g_picos_api = api;
+    g_picodeck_api = api;
     strncpy(g_app_dir, app_dir, sizeof(g_app_dir) - 1);
 
     int exit_code = setjmp(g_exit_jmp);
@@ -212,9 +212,9 @@ void picos_main(const PicoCalcAPI *api, const char *app_dir,
 ### Step 0.6: Create `Makefile`
 
 Based on `apps/doom/Makefile`, targeting the stripped cdogs source tree. Key differences from DOOM:
-- Source files: `cdogs_picos.c stubs.c picos_grafx.c picos_input.c picos_sound.c` + `src/cdogs/*.c`
+- Source files: `cdogs_picodeck.c stubs.c picodeck_grafx.c picodeck_input.c picodeck_sound.c` + `src/cdogs/*.c`
 - Include paths: `-Isrc/cdogs -Isrc/cdogs/include` (wherever cdogs headers live)
-- Defines: `-DPICOS` (platform guard)
+- Defines: `-DPICODECK` (platform guard)
 - Exclude patterns: SDL platform files, editor, networking
 
 ### Step 0.7: Gate
@@ -227,8 +227,8 @@ Based on `apps/doom/Makefile`, targeting the stripped cdogs source tree. Key dif
 
 ### Phase 1: Boot to main menu (1-2 weeks)
 - Stub all SDL rendering → get game logic compiling + linking
-- Implement `picos_grafx.c` (ARGB8888 buffer → RGB565 → `flushRegion`)
-- Implement `picos_input.c` (button polling)
+- Implement `picodeck_grafx.c` (ARGB8888 buffer → RGB565 → `flushRegion`)
+- Implement `picodeck_input.c` (button polling)
 - Wire file I/O stubs
 - **Gate**: Main menu visible on screen, navigable
 
@@ -260,9 +260,9 @@ Based on `apps/doom/Makefile`, targeting the stripped cdogs source tree. Key dif
 
 ## Key Reference Files
 
-- `apps/doom/dg_picos.c` — entry point, framebuffer pipeline, input mapping
+- `apps/doom/dg_picodeck.c` — entry point, framebuffer pipeline, input mapping
 - `apps/doom/stubs.c` — newlib stubs (_sbrk, FS, _exit longjmp)
-- `apps/doom/i_picos_sound.c` — Core 1 audio mixer
+- `apps/doom/i_picodeck_sound.c` — Core 1 audio mixer
 - `apps/doom/Makefile` — cross-compile config
 - `apps/doom/linker.ld` — PIE linker script
 - `sdk/native/os.h` — PicoCalcAPI surface
@@ -282,5 +282,5 @@ Based on `apps/doom/Makefile`, targeting the stripped cdogs source tree. Key dif
 ### C-Dogs scaffold (Phase 0)
 1. `cd apps/cdogs && make` — produces `main.elf`
 2. `arm-none-eabi-size main.elf` — verify text+data+bss under 5MB
-3. Copy to SD, boot PicOS → launcher shows "C-Dogs" → launch → "Scaffold loaded" in log
+3. Copy to SD, boot PicoDeck → launcher shows "C-Dogs" → launch → "Scaffold loaded" in log
 4. System menu exit → clean return to launcher

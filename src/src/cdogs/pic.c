@@ -36,9 +36,9 @@
 #include "texture.h"
 #include "utils.h"
 
-#ifdef PICOS
-#include "picos_heap.h"
-#include "picos_sdl_impl.h"
+#ifdef PICODECK
+#include "picodeck_heap.h"
+#include "picodeck_sdl_impl.h"
 #endif
 
 map_t textureDebugger = NULL;
@@ -91,18 +91,18 @@ color_t PicPx(const Pic *p, int i)
 {
 	switch (p->fmt)
 	{
-#ifdef PICOS
+#ifdef PICODECK
 	case PIC_FMT_RGB565:
 	{
 		const uint16_t px = ((const uint16_t *)p->Data)[i];
-		if (px == PICOS_RGB565_CKEY)
+		if (px == PICODECK_RGB565_CKEY)
 		{
 			// Matches the pre-RGB565 sentinel: a transparent source pixel
 			// was stored as a whole-zero word, i.e. (r,g,b,a) = (0,0,0,0).
 			return (color_t){0, 0, 0, 0};
 		}
 		uint32_t r, g, b;
-		picos_unpack565(px, &r, &g, &b);
+		picodeck_unpack565(px, &r, &g, &b);
 		return (color_t){(uint8_t)r, (uint8_t)g, (uint8_t)b, 255};
 	}
 	case PIC_FMT_LA8:
@@ -122,14 +122,14 @@ void PicPxSet(Pic *p, int i, color_t c)
 {
 	switch (p->fmt)
 	{
-#ifdef PICOS
+#ifdef PICODECK
 	case PIC_FMT_RGB565:
 	{
 		// Reuse the existing ARGB8888->RGB565 helper (alpha<128 -> CKEY)
 		// rather than re-deriving the threshold here.
 		const uint32_t argb = ((uint32_t)c.a << 24) | ((uint32_t)c.r << 16) |
 			((uint32_t)c.g << 8) | c.b;
-		((uint16_t *)p->Data)[i] = picos_argb_to_565(argb);
+		((uint16_t *)p->Data)[i] = picodeck_argb_to_565(argb);
 		return;
 	}
 	case PIC_FMT_LA8:
@@ -149,9 +149,9 @@ bool PicPxTransparent(const Pic *p, int i)
 {
 	switch (p->fmt)
 	{
-#ifdef PICOS
+#ifdef PICODECK
 	case PIC_FMT_RGB565:
-		return ((const uint16_t *)p->Data)[i] == PICOS_RGB565_CKEY;
+		return ((const uint16_t *)p->Data)[i] == PICODECK_RGB565_CKEY;
 	case PIC_FMT_LA8:
 		return ((const uint16_t *)p->Data)[i] == 0x0000;
 #endif
@@ -223,17 +223,17 @@ void PicChannelsFree(Pic *p)
 	{
 		return;
 	}
-#ifdef PICOS
+#ifdef PICODECK
 	{
 		const struct vec2i psize = PicPixelSize(p);
-		g_picos_pic_data_bytes -= PicChannelsBytes(psize.x * psize.y);
+		g_picodeck_pic_data_bytes -= PicChannelsBytes(psize.x * psize.y);
 	}
 #endif
 	CFREE(p->Channels);
 	p->Channels = NULL;
 }
 
-#ifdef PICOS
+#ifdef PICODECK
 // Amendment B (2026-07-22, cdogs Stage 2C pic-formats plan, filed after Task
 // 4 shipped): Task 4 made every chars/ pic LA8 (one luma byte), which grays
 // out chromatic pixels the colour-key classifier can't recognise as any of
@@ -326,7 +326,7 @@ void PicLoad(
 		p->size = svec2i_scale_divide(p->size, 2);
 	}
 	p->offset = svec2i_zero();
-#ifdef PICOS
+#ifdef PICODECK
 	// chars/ pics (charHeadPart >= 0): PicManagerAdd no longer gets to pick
 	// the format -- see PicLoadClassifyCharsFormat above (Amendment B). Every
 	// other pic (font.c, style pics, "final" pics) keeps the caller's fmt
@@ -339,14 +339,14 @@ void PicLoad(
 		switch (resolvedFmt)
 		{
 		case PIC_FMT_LA8:
-			g_picos_chars_fmt_la8++;
+			g_picodeck_chars_fmt_la8++;
 			break;
 		case PIC_FMT_RGB565:
-			g_picos_chars_fmt_rgb565++;
+			g_picodeck_chars_fmt_rgb565++;
 			break;
 		case PIC_FMT_ARGB8888:
 		default:
-			g_picos_chars_fmt_argb8888++;
+			g_picodeck_chars_fmt_argb8888++;
 			break;
 		}
 	}
@@ -377,11 +377,11 @@ void PicLoad(
 			return;
 		}
 	}
-#ifdef PICOS
-	g_picos_pic_data_bytes +=
+#ifdef PICODECK
+	g_picodeck_pic_data_bytes +=
 		(size_t)size.x * size.y * PicPxBytes(p) + channelsBytes;
-	g_picos_pic_count++;
-	picos_gfx_bytes_peak_sample();
+	g_picodeck_pic_count++;
+	picodeck_gfx_bytes_peak_sample();
 #endif
 	// Manually copy the pixels and replace the alpha component,
 	// since our gfx device format has no alpha
@@ -436,11 +436,11 @@ void PicLoad(
 			// blit.c's CharColorTypeFromColor/CharColorTypeAlpha comment --
 			// and this is where a source-image colour key becomes the
 			// in-game "grey + special alpha" encoding. This branch is NOT
-			// PICOS-gated: desktop forces p->fmt back to PIC_FMT_ARGB8888
+			// PICODECK-gated: desktop forces p->fmt back to PIC_FMT_ARGB8888
 			// above regardless of what PicManagerAdd requested, so running
 			// the identical classify-then-PicPxSet logic here (rather than
 			// keeping a second copy of the old post-load loop under
-			// `#ifndef PICOS`) reproduces byte-identical desktop output with
+			// `#ifndef PICODECK`) reproduces byte-identical desktop output with
 			// no duplicated logic -- PicPxSet's ARGB8888 branch is a plain
 			// COLOR2PIXEL of `converted`, same as the removed block did.
 			if (c.a != 255)
@@ -548,12 +548,12 @@ bool PicTryMakeTex(Pic *p)
 		}
 	}
 	const struct vec2i size = PicPixelSize(p);
-#ifdef PICOS
+#ifdef PICODECK
 	/* No GPU: TextureCreate + SDL_UpdateTexture would allocate and memcpy a
 	   byte-identical second copy of p->Data.  Borrow it instead.
 	   Safe because PicFree destroys Tex before CFREE(pic->Data), and
 	   PicShrink calls back here after replacing Data. */
-	p->Tex = PicosTextureBorrow(p->Data, size.x, size.y, p->fmt);
+	p->Tex = PicodeckTextureBorrow(p->Data, size.x, size.y, p->fmt);
 	if (p->Tex == NULL)
 	{
 		LOG(LM_GFX, LL_ERROR, "cannot borrow texture");
@@ -615,10 +615,10 @@ static Pic PicCopyInternal(const Pic *src, const bool copyChannels)
 		CMALLOC(p.Channels, channelsSize);
 		memcpy(p.Channels, src->Channels, channelsSize);
 	}
-#ifdef PICOS
-	g_picos_pic_data_bytes += size + channelsSize;
-	g_picos_pic_count++;
-	picos_gfx_bytes_peak_sample();
+#ifdef PICODECK
+	g_picodeck_pic_data_bytes += size + channelsSize;
+	g_picodeck_pic_count++;
+	picodeck_gfx_bytes_peak_sample();
 #endif
 	p.Tex = NULL;
 	p.isHD = src->isHD;
@@ -654,7 +654,7 @@ Pic PicCopyToFormat(const Pic *src, const PicFormat fmt)
 	p.size = src->size;
 	p.offset = src->offset;
 	p.isHD = src->isHD;
-#ifdef PICOS
+#ifdef PICODECK
 	p.fmt = (uint8_t)fmt;
 #else
 	// Desktop has no software RGB565/LA8 rendering path -- mirror PicLoad's
@@ -672,9 +672,9 @@ Pic PicCopyToFormat(const Pic *src, const PicFormat fmt)
 		// in pic_manager.c, is desktop-only as of Stage 2D Task 3). On
 		// desktop, CMALLOC's _CCHECKALLOC (utils.h) exit(1)s on OOM before
 		// returning, so p.Data is never actually NULL here -- this guard is
-		// vestigial there. It only does anything on PICOS, where CMALLOC logs
+		// vestigial there. It only does anything on PICODECK, where CMALLOC logs
 		// and returns NULL instead of aborting; kept (rather than removed)
-		// against a hypothetical future PICOS caller of this function, since
+		// against a hypothetical future PICODECK caller of this function, since
 		// falling through to PicPxSet against a NULL p.Data would be worse
 		// than this early, harmless return.
 		return p;
@@ -683,10 +683,10 @@ Pic PicCopyToFormat(const Pic *src, const PicFormat fmt)
 	{
 		PicPxSet(&p, i, PicPx(src, i));
 	}
-#ifdef PICOS
-	g_picos_pic_data_bytes += size;
-	g_picos_pic_count++;
-	picos_gfx_bytes_peak_sample();
+#ifdef PICODECK
+	g_picodeck_pic_data_bytes += size;
+	g_picodeck_pic_count++;
+	picodeck_gfx_bytes_peak_sample();
 #endif
 	p.Tex = NULL;
 	return p;
@@ -720,18 +720,18 @@ void PicFree(Pic *pic)
 			}
 		}
 	}
-#ifdef PICOS
+#ifdef PICODECK
 	if (pic->Data != NULL)
 	{
 		const struct vec2i dataSize = PicPixelSize(pic);
-		g_picos_pic_data_bytes -=
+		g_picodeck_pic_data_bytes -=
 			(size_t)dataSize.x * dataSize.y * PicPxBytes(pic);
 		if (pic->Channels != NULL)
 		{
-			g_picos_pic_data_bytes -=
+			g_picodeck_pic_data_bytes -=
 				PicChannelsBytes(dataSize.x * dataSize.y);
 		}
-		g_picos_pic_count--;
+		g_picodeck_pic_count--;
 	}
 #endif
 	pic->size = svec2i_zero();
@@ -822,22 +822,22 @@ void PicShrink(Pic *pic, const struct vec2i size, const struct vec2i offset)
 		}
 	}
 	// Replace the old data
-#ifdef PICOS
+#ifdef PICODECK
 	{
 		const struct vec2i oldSize = PicPixelSize(pic);
-		g_picos_pic_data_bytes -=
+		g_picodeck_pic_data_bytes -=
 			(size_t)oldSize.x * oldSize.y * PicPxBytes(pic);
-		g_picos_pic_data_bytes += (size_t)size.x * size.y * bpp;
+		g_picodeck_pic_data_bytes += (size_t)size.x * size.y * bpp;
 		if (pic->Channels != NULL)
 		{
-			g_picos_pic_data_bytes -=
+			g_picodeck_pic_data_bytes -=
 				PicChannelsBytes(oldSize.x * oldSize.y);
 		}
 		if (newChannels != NULL)
 		{
-			g_picos_pic_data_bytes += PicChannelsBytes(size.x * size.y);
+			g_picodeck_pic_data_bytes += PicChannelsBytes(size.x * size.y);
 		}
-		picos_gfx_bytes_peak_sample();
+		picodeck_gfx_bytes_peak_sample();
 	}
 #endif
 	CFREE(pic->Data);

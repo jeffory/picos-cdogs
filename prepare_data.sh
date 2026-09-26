@@ -1,9 +1,9 @@
 #!/bin/bash
-# Prepare C-Dogs data directory for PicOS SD card
+# Prepare C-Dogs data directory for PicoDeck SD card
 # Usage: ./prepare_data.sh [SD_MOUNT_POINT]
 #
 # Copies required game data from the cdogs-sdl source tree to the
-# SD card layout expected by the PicOS port.
+# SD card layout expected by the PicoDeck port.
 #
 # SD card layout:
 #   /apps/cdogs/main.elf       (built by make)
@@ -28,7 +28,7 @@ if [ ! -d "$SRC_DIR/graphics" ]; then
     exit 1
 fi
 
-echo "=== Preparing C-Dogs data for PicOS ==="
+echo "=== Preparing C-Dogs data for PicoDeck ==="
 echo "Source:      $SRC_DIR"
 echo "Destination: $DATA_DIR"
 echo ""
@@ -86,7 +86,7 @@ echo ""
 echo "=== Data preparation complete ==="
 du -sh "$DATA_DIR"
 echo ""
-echo "To deploy to PicOS SD card:"
+echo "To deploy to PicoDeck SD card:"
 echo "  1. Copy main.elf to /apps/cdogs/ on SD card"
 echo "  2. Copy app.json to /apps/cdogs/ on SD card"
 echo "  3. Copy data/ directory to /apps/cdogs/data/ on SD card"

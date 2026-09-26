@@ -1,4 +1,4 @@
-/* PicOS termios.h stub — no terminal on bare metal */
+/* PicoDeck termios.h stub — no terminal on bare metal */
 #pragma once
 
 struct termios {

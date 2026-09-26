@@ -45,8 +45,8 @@
 // (pic_manager.c, a placeholder for chars/) and font.c (always RGB565).
 typedef enum
 {
-	PIC_FMT_ARGB8888 = 0, // 4 B/px -- desktop always; PICOS until converted
-	PIC_FMT_RGB565 = 1,   // 2 B/px + PICOS_RGB565_CKEY transparency
+	PIC_FMT_ARGB8888 = 0, // 4 B/px -- desktop always; PICODECK until converted
+	PIC_FMT_RGB565 = 1,   // 2 B/px + PICODECK_RGB565_CKEY transparency
 	PIC_FMT_LA8 = 2,      // 2 B/px: low byte L, high byte A (channel index); 0x0000 = transparent
 } PicFormat;
 
@@ -134,7 +134,7 @@ Pic PicCopyNoChannels(const Pic *src);
 // (per-pixel, via PicPx/PicPxSet) rather than a raw memcpy of same-format
 // bytes. Used for cache outputs whose *destination* role calls for a
 // different format than their source -- e.g. PicManagerGetCharSprites'
-// per-CharColors recoloured sprite cache (desktop only as of Stage 2D; PICOS
+// per-CharColors recoloured sprite cache (desktop only as of Stage 2D; PICODECK
 // recolours at blit time instead -- see draw_actor.c), which reads an LA8
 // source but stores a real-colour RGB565 final (see pic_manager.c). The
 // output never carries a Channels map, same reasoning as PicCopyNoChannels

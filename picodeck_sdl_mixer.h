@@ -1,9 +1,9 @@
 /*
-    PicOS SDL_mixer Type Shim for C-Dogs SDL
+    PicoDeck SDL_mixer Type Shim for C-Dogs SDL
 */
 #pragma once
 
-#include "picos_sdl.h"
+#include "picodeck_sdl.h"
 
 #define SDL_MIXER_MAJOR_VERSION 2
 #define SDL_MIXER_MINOR_VERSION 0
@@ -107,7 +107,7 @@ static inline int Mix_SetMusicPosition(double pos) { (void)pos; return 0; }
 static inline int Mix_FadeInMusic(Mix_Music *m, int loops, int ms) { (void)m; (void)loops; (void)ms; return -1; }
 static inline int Mix_FadeOutMusic(int ms) { (void)ms; return 0; }
 
-static inline const char *Mix_GetError(void) { return "PicOS mixer stub"; }
+static inline const char *Mix_GetError(void) { return "PicoDeck mixer stub"; }
 static inline int Mix_QuerySpec(int *freq, Uint16 *fmt, int *ch) {
     if(freq)*freq=22050; if(fmt)*fmt=AUDIO_S16SYS; if(ch)*ch=2; return 1;
 }

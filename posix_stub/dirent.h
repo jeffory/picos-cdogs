@@ -1,5 +1,5 @@
 /*
-    PicOS dirent.h stub — newlib-arm doesn't provide one.
+    PicoDeck dirent.h stub — newlib-arm doesn't provide one.
     Minimal implementation for tinydir and C-Dogs.
 */
 #pragma once

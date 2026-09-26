@@ -220,7 +220,7 @@ struct vec2i FontChMask(
 		idx = FIRST_CHAR;
 	}
 	const Pic *pic = CArrayGet(&gFont.Chars, idx);
-#ifdef PICOS
+#ifdef PICODECK
 	static int s_fontch_count = 0;
 	s_fontch_count++;
 	if (s_fontch_count <= 3) {

@@ -81,7 +81,7 @@ void GraphicsInit(GraphicsDevice *device, Config *c)
 // to see if anything changed. If not, don't recreate the screen.
 void GraphicsInitialize(GraphicsDevice *g)
 {
-#ifdef PICOS
+#ifdef PICODECK
 	fprintf(stderr, "GraphicsInitialize: enter (flags=%d)\n", g->cachedConfig.RestartFlags);
 #endif
 	if (g->IsInitialized && !g->cachedConfig.RestartFlags)
@@ -91,8 +91,8 @@ void GraphicsInitialize(GraphicsDevice *g)
 
 	if (!g->IsWindowInitialized)
 	{
-#ifdef PICOS
-		fprintf(stderr, "GraphicsInitialize: skipping icon (PicOS)\n");
+#ifdef PICODECK
+		fprintf(stderr, "GraphicsInitialize: skipping icon (PicoDeck)\n");
 		g->icon = NULL;
 #else
 		char buf[CDOGS_PATH_MAX];
@@ -106,7 +106,7 @@ void GraphicsInitialize(GraphicsDevice *g)
 
 	const int w = g->cachedConfig.Res.x;
 	const int h = g->cachedConfig.Res.y;
-#ifdef PICOS
+#ifdef PICODECK
 	fprintf(stderr, "GraphicsInitialize: res=%dx%d\n", w, h);
 #endif
 
@@ -122,7 +122,7 @@ void GraphicsInitialize(GraphicsDevice *g)
 		LOG(LM_GFX, LL_INFO, "graphics mode(%dx%d %dx%s)", w, h,
 			g->cachedConfig.ScaleFactor,
 			g->cachedConfig.Fullscreen ? " fullscreen" : "");
-#ifdef PICOS
+#ifdef PICODECK
 		fprintf(stderr, "GraphicsInitialize: initWindow start\n");
 #endif
 
@@ -146,19 +146,19 @@ void GraphicsInitialize(GraphicsDevice *g)
 		sprintf(
 			title, "C-Dogs SDL %s%s",
 			g->cachedConfig.IsEditor ? "Editor " : "", CDOGS_SDL_VERSION);
-#ifdef PICOS
+#ifdef PICODECK
 		fprintf(stderr, "GraphicsInitialize: creating window context\n");
 #endif
 		if (!WindowContextCreate(
 				&g->gameWindow, windowDim, windowFlags, title, g->icon,
 				svec2i(w, h)))
 		{
-#ifdef PICOS
+#ifdef PICODECK
 			fprintf(stderr, "GraphicsInitialize: WindowContextCreate FAILED\n");
 #endif
 			return;
 		}
-#ifdef PICOS
+#ifdef PICODECK
 		fprintf(stderr, "GraphicsInitialize: window created OK\n");
 #endif
 		if (g->cachedConfig.SecondWindow)
@@ -173,23 +173,23 @@ void GraphicsInitialize(GraphicsDevice *g)
 		}
 
 		g->Format = SDL_AllocFormat(SDL_PIXELFORMAT_ARGB8888);
-#ifdef PICOS
+#ifdef PICODECK
 		fprintf(stderr, "GraphicsInitialize: reloading textures\n");
 #endif
 		// Need to reload textures due to them tied to the renderer (window)
 		PicManagerReloadTextures(&gPicManager);
-#ifdef PICOS
+#ifdef PICODECK
 		fprintf(stderr, "GraphicsInitialize: loading font\n");
 #endif
 		FontLoadFromJSON(&gFont, "graphics/font.png", "graphics/font.json");
-#ifdef PICOS
+#ifdef PICODECK
 		fprintf(stderr, "GraphicsInitialize: initWindow done\n");
 #endif
 	}
 
 	if (initTextures)
 	{
-#ifdef PICOS
+#ifdef PICODECK
 		fprintf(stderr, "GraphicsInitialize: initTextures start\n");
 #endif
 		if (!initWindow)
@@ -225,7 +225,7 @@ void GraphicsInitialize(GraphicsDevice *g)
 
 		CFREE(g->buf);
 		CCALLOC(g->buf, GraphicsGetMemSize(&g->cachedConfig));
-#ifdef PICOS
+#ifdef PICODECK
 		fprintf(stderr, "GraphicsInitialize: g->buf=%p (%d bytes)\n", (void*)g->buf, GraphicsGetMemSize(&g->cachedConfig));
 #endif
 		g->bkgTgt = WindowContextCreateTexture(
@@ -320,7 +320,7 @@ void GraphicsInitialize(GraphicsDevice *g)
 	g->cachedConfig.Res.x = w;
 	g->cachedConfig.Res.y = h;
 	g->cachedConfig.RestartFlags = 0;
-#ifdef PICOS
+#ifdef PICODECK
 	fprintf(stderr, "GraphicsInitialize: COMPLETE (%dx%d)\n", w, h);
 #endif
 }

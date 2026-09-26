@@ -220,7 +220,7 @@ void BlitFillBuf(GraphicsDevice *g, const color_t c)
 }
 void BlitUpdateFromBuf(GraphicsDevice *g, SDL_Texture *t)
 {
-#ifdef PICOS
+#ifdef PICODECK
 	static int s_blit_count = 0;
 	s_blit_count++;
 	if (s_blit_count <= 5) {

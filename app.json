@@ -1,12 +1,12 @@
 {
-    "id": "com.picos.cdogs",
+    "id": "net.picodeck.cdogs",
     "name": "C-Dogs",
     "description": "Classic overhead run-and-gun game",
     "type": "native",
     "version": "0.1.0",
     "requirements": ["root-filesystem", "audio"],
     "category": "games",
-    "author": "PicOS",
-    "homepage": "https://github.com/jeffory/picos-cdogs",
+    "author": "PicoDeck",
+    "homepage": "https://github.com/PicoDeck/cdogs",
     "min_firmware": "0.1.0"
 }

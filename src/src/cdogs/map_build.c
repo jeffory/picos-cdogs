@@ -74,16 +74,16 @@ void MapBuild(
 	const CharacterStore *characters)
 {
 	MapBuilder mb;
-#ifdef PICOS
+#ifdef PICODECK
 	/* Coarse stages too: the per-tile tick below only covers tile setup,
 	   not generation, drains, exits or the reachability count. */
-	extern void picos_asset_load_tick(void);
-	picos_asset_load_tick();
+	extern void picodeck_asset_load_tick(void);
+	picodeck_asset_load_tick();
 #endif
 	MapBuilderInit(&mb, m, mission, mode, characters);
 	MapInit(mb.Map, mb.mission->Size);
-#ifdef PICOS
-	picos_asset_load_tick();
+#ifdef PICODECK
+	picodeck_asset_load_tick();
 #endif
 
 	switch (mb.mission->Type)
@@ -105,15 +105,15 @@ void MapBuild(
 		break;
 	}
 	CArrayCopy(&mb.Map->access, &mb.access);
-#ifdef PICOS
-	picos_asset_load_tick();
+#ifdef PICODECK
+	picodeck_asset_load_tick();
 #endif
 
 	MapSetupTilesAndWalls(&mb);
 	MapSetupDoors(&mb);
 	MapPrintDebug(mb.Map);
-#ifdef PICOS
-	picos_asset_load_tick();
+#ifdef PICODECK
+	picodeck_asset_load_tick();
 #endif
 
 	// Set exit now since we have set up all the tiles
@@ -712,15 +712,15 @@ static const char *MapGetWallPic(const MapBuilder *m, const struct vec2i pos);
 // Set tile properties for a map tile
 static void MapSetupTile(MapBuilder *mb, const struct vec2i pos)
 {
-#ifdef PICOS
+#ifdef PICODECK
 	/* Map generation is CPU-bound and presents no frames, and presenting is
-	   what feeds PicOS's 10s watchdog (see SDL_Delay/SDL_RenderPresent in
-	   picos_sdl_impl.c) — a large map reset the device mid-build.  This runs
+	   what feeds PicoDeck's 10s watchdog (see SDL_Delay/SDL_RenderPresent in
+	   picodeck_sdl_impl.c) — a large map reset the device mid-build.  This runs
 	   once per tile, which is the finest granularity every map type shares;
 	   the tick is internally rate-limited to 500ms so the per-tile cost is a
 	   clock read and a compare. */
-	extern void picos_asset_load_tick(void);
-	picos_asset_load_tick();
+	extern void picodeck_asset_load_tick(void);
+	picodeck_asset_load_tick();
 #endif
 	if (!MapIsTileIn(mb->Map, pos))
 		return;

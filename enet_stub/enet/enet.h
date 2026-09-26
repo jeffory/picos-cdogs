@@ -1,5 +1,5 @@
 /*
-    Minimal ENet stub for C-Dogs SDL on PicOS.
+    Minimal ENet stub for C-Dogs SDL on PicoDeck.
     Just provides type definitions so headers compile.
 */
 #pragma once

@@ -74,8 +74,8 @@
 #include "log.h"
 #include "sys_config.h"
 
-#ifdef PICOS
-#include "picos_heap.h"
+#ifdef PICODECK
+#include "picodeck_heap.h"
 #endif
 
 bool gTrue = true;
@@ -153,8 +153,8 @@ static bool IsAbsolutePath(const char *path);
 void RealPath(const char *src, char *dest)
 {
 	char *res;
-#ifdef PICOS
-	// On PicOS, just copy the path directly — no realpath or tinydir needed
+#ifdef PICODECK
+	// On PicoDeck, just copy the path directly — no realpath or tinydir needed
 	strncpy(dest, src, CDOGS_PATH_MAX - 1);
 	dest[CDOGS_PATH_MAX - 1] = '\0';
 	return;
@@ -704,7 +704,7 @@ end:
 
 SDL_Surface *LoadImgToSurface(const char *path)
 {
-#ifdef PICOS
+#ifdef PICODECK
 	/* The full decoded sprite set is far larger than the app heap (the PNG
 	   sources alone are 27MB); loading eagerly until malloc fails crashes
 	   the game on an unchecked allocation.  Keep a reserve for gameplay and
@@ -714,18 +714,18 @@ SDL_Surface *LoadImgToSurface(const char *path)
 	   nothing else feeds the hardware watchdog (8s), so a full-tree load
 	   reboots the device mid-decode.  The tick polls the OS (watchdog +
 	   serial console) between decodes. */
-	extern void picos_asset_load_tick(void);
-	picos_asset_load_tick();
+	extern void picodeck_asset_load_tick(void);
+	picodeck_asset_load_tick();
 	/* 2.5MB reserve against TRUE free (never-allocated sbrk space plus
-	   newlib's free list — see picos_heap.h). Until sub-project 2B this
-	   guard used the watermark-only picos_heap_free(), which ignores
+	   newlib's free list — see picodeck_heap.h). Until sub-project 2B this
+	   guard used the watermark-only picodeck_heap_free(), which ignores
 	   recycled blocks and so skipped images while real memory was free.
 	   The reserve is now an actual floor, and it must cover everything
 	   that allocates OUTSIDE this guard: each admitted image spawns
 	   Pic->Data (w*h*2 for RGB565 "final"/style pics and most chars/ pics
 	   [LA8]; w*h*4 for the minority of chars/ pics Amendment B keeps
 	   ARGB8888 -- see pic.c's PicLoadClassifyCharsFormat) -- textures BORROW
-	   this same Pic->Data (PicosTextureBorrow; there is no separate per-pic
+	   this same Pic->Data (PicodeckTextureBorrow; there is no separate per-pic
 	   texture allocation) -- then sounds, campaign scans, menus, and mission
 	   load. Stage 2D retired the per-CharColors baked sprite clone this
 	   reserve used to have to size against: chars now recolour at blit time
@@ -736,17 +736,17 @@ SDL_Surface *LoadImgToSurface(const char *path)
 	   the app died in late init. Retune only against a measured mission
 	   start on hardware, not the simulator (sim heap behaviour differs). */
 	enum { IMG_LOAD_HEAP_RESERVE = 2560 * 1024 };
-	if (picos_heap_free_true() < IMG_LOAD_HEAP_RESERVE) {
-		g_picos_img_skip_count++;
-		if (g_picos_img_skip_count <= 5 || g_picos_img_skip_count % 100 == 0) {
+	if (picodeck_heap_free_true() < IMG_LOAD_HEAP_RESERVE) {
+		g_picodeck_img_skip_count++;
+		if (g_picodeck_img_skip_count <= 5 || g_picodeck_img_skip_count % 100 == 0) {
 			fprintf(stderr, "LoadImg SKIP #%d (heap reserve): '%s'\n",
-					g_picos_img_skip_count, path);
+					g_picodeck_img_skip_count, path);
 		}
 		return NULL;
 	}
 #endif
 	SDL_Surface *s = STBIMG_Load(path);
-#ifdef PICOS
+#ifdef PICODECK
 	static int img_count = 0;
 	img_count++;
 	if (img_count <= 5 || s == NULL) {

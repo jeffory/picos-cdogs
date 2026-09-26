@@ -27,8 +27,8 @@
 
 #include "log.h"
 
-#ifdef PICOS
-#include "picos_heap.h"
+#ifdef PICODECK
+#include "picodeck_heap.h"
 #endif
 
 #include <stdio.h>
@@ -60,7 +60,7 @@ bail:
 // Read a file into a dynamic buffer
 static char *ReadFile(const char *filename)
 {
-#ifdef PICOS
+#ifdef PICODECK
 	/* Bypass newlib stdio — use low-level _open/_read/_lseek/_close directly.
 	 * Newlib's FILE buffering can fail in Unicorn ARM emulation. */
 	extern int _open(const char *, int, int);
@@ -68,16 +68,16 @@ static char *ReadFile(const char *filename)
 	extern int _lseek(int, int, int);
 	extern int _close(int);
 	int fd = _open(filename, 0 /*O_RDONLY*/, 0);
-	PICOS_LOADLOG("ReadFile PICOS: open('%s') fd=%d\n", filename, fd);
+	PICODECK_LOADLOG("ReadFile PICODECK: open('%s') fd=%d\n", filename, fd);
 	if (fd < 0) return NULL;
 	int size = _lseek(fd, 0, 2 /*SEEK_END*/);
-	PICOS_LOADLOG("ReadFile PICOS: lseek SEEK_END -> size=%d\n", size);
+	PICODECK_LOADLOG("ReadFile PICODECK: lseek SEEK_END -> size=%d\n", size);
 	if (size <= 0) { _close(fd); return NULL; }
 	_lseek(fd, 0, 0 /*SEEK_SET*/);
 	char *buf = malloc(size + 1);
-	if (!buf) { fprintf(stderr, "ReadFile PICOS: malloc(%d) failed\n", size+1); _close(fd); return NULL; }
+	if (!buf) { fprintf(stderr, "ReadFile PICODECK: malloc(%d) failed\n", size+1); _close(fd); return NULL; }
 	int nread = _read(fd, buf, size);
-	PICOS_LOADLOG("ReadFile PICOS: read(%d) -> nread=%d\n", size, nread);
+	PICODECK_LOADLOG("ReadFile PICODECK: read(%d) -> nread=%d\n", size, nread);
 	buf[nread > 0 ? nread : 0] = '\0';
 	_close(fd);
 	return buf;

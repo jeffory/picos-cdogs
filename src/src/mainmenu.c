@@ -96,8 +96,8 @@ GameLoopData *MainMenu(GraphicsDevice *graphics, LoopRunner *l)
 }
 static void GenerateLiveBackground(MainMenuData *data)
 {
-#ifdef PICOS
-	// PicOS: skip live background generation to save ~2MB heap.
+#ifdef PICODECK
+	// PicoDeck: skip live background generation to save ~2MB heap.
 	// The main menu will render with a solid background instead.
 	const HSV tint = {180.0, 0.5, 0.5};
 	data->bgTint = tint;
@@ -236,7 +236,7 @@ static GameLoopResult MainMenuUpdate(GameLoopData *data, LoopRunner *l)
 		return UPDATE_RESULT_OK;
 	}
 
-#ifndef PICOS
+#ifndef PICODECK
 	LOSSetAllVisible(&mData->rData.map->LOS);
 	GameUpdate(&mData->rData, 1, NULL);
 #endif
@@ -273,8 +273,8 @@ static void MainMenuDraw(GameLoopData *data)
 	}
 	MainMenuData *mData = data->Data;
 	MenuDraw(&mData->ms);
-#ifdef PICOS
-	// PicOS: no live background — just clear and draw menu
+#ifdef PICODECK
+	// PicoDeck: no live background — just clear and draw menu
 	(void)mData;
 #else
 	const struct vec2 pos = svec2(

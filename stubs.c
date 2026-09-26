@@ -1,5 +1,5 @@
 /*
-    C-Dogs SDL PicOS Port — Newlib stubs
+    C-Dogs SDL PicoDeck Port — Newlib stubs
     Based on apps/doom/stubs.c
 */
 #include <sys/stat.h>
@@ -13,12 +13,12 @@
 #include <malloc.h>
 #include "os.h"
 #include "dirent.h"
-#include "picos_heap.h"
+#include "picodeck_heap.h"
 
-extern const PicoCalcAPI *g_picos_api;
+extern const PicoCalcAPI *g_picodeck_api;
 extern char g_app_dir[128];
 
-/* Defined in cdogs_picos.c — longjmp target so _exit() returns to picos_main() */
+/* Defined in cdogs_picodeck.c — longjmp target so _exit() returns to picodeck_main() */
 extern jmp_buf g_exit_jmp;
 
 /* --- Heap for malloc/sbrk ---
@@ -32,14 +32,14 @@ static uint8_t *g_heap_ptr = g_heap;
 /* Remaining never-allocated heap (sbrk watermark; freed blocks recycled by
  * newlib malloc are not visible here, so this is a conservative floor).
  * Reporting only since 2B. */
-size_t picos_heap_free(void) {
+size_t picodeck_heap_free(void) {
     return (size_t)((g_heap + HEAP_SIZE) - g_heap_ptr);
 }
 
 /* Watermark plus newlib's free list: the real free number.  Load-bearing —
  * the LoadImgToSurface reserve guard compares this against its reserve;
- * see picos_heap.h before changing. */
-size_t picos_heap_free_true(void) {
+ * see picodeck_heap.h before changing. */
+size_t picodeck_heap_free_true(void) {
     struct mallinfo mi = mallinfo();
     return (size_t)((g_heap + HEAP_SIZE) - g_heap_ptr) + (size_t)mi.fordblks;
 }
@@ -61,7 +61,7 @@ static void heap_peak_sample(void) {
     if (used > s_heap_used_peak) s_heap_used_peak = used;
 }
 
-void picos_heap_report(const char *tag) {
+void picodeck_heap_report(const char *tag) {
     struct mallinfo mi = mallinfo();
     const size_t watermark = (size_t)((g_heap + HEAP_SIZE) - g_heap_ptr);
     /* Belt-and-braces only: g_heap_ptr only ever moves inside _sbrk(),
@@ -72,44 +72,44 @@ void picos_heap_report(const char *tag) {
     fprintf(stderr, "HEAPSTAT %s watermark=%u true=%u arena=%u used=%u peak=%u\n",
             tag,
             (unsigned)watermark,
-            (unsigned)picos_heap_free_true(),
+            (unsigned)picodeck_heap_free_true(),
             (unsigned)mi.arena,
             (unsigned)mi.uordblks,
             (unsigned)s_heap_used_peak);
 }
 
 /* Resident-graphics accounting.  Defined here rather than in pic.c so it
- * lives alongside the rest of the PICOS-only heap/graphics instrumentation
- * in one file (stubs.c is itself PICOS-only; pic.c is shared with the
- * non-PICOS desktop build and only touches these symbols inside
- * #ifdef PICOS blocks). */
-size_t g_picos_pic_data_bytes = 0;
-size_t g_picos_pic_tex_bytes  = 0;
-size_t g_picos_pic_bytes_peak = 0;
-int    g_picos_pic_count      = 0;
-int    g_picos_img_skip_count = 0;
-int    g_picos_chars_fmt_la8      = 0;
-int    g_picos_chars_fmt_rgb565   = 0;
-int    g_picos_chars_fmt_argb8888 = 0;
+ * lives alongside the rest of the PICODECK-only heap/graphics instrumentation
+ * in one file (stubs.c is itself PICODECK-only; pic.c is shared with the
+ * non-PICODECK desktop build and only touches these symbols inside
+ * #ifdef PICODECK blocks). */
+size_t g_picodeck_pic_data_bytes = 0;
+size_t g_picodeck_pic_tex_bytes  = 0;
+size_t g_picodeck_pic_bytes_peak = 0;
+int    g_picodeck_pic_count      = 0;
+int    g_picodeck_img_skip_count = 0;
+int    g_picodeck_chars_fmt_la8      = 0;
+int    g_picodeck_chars_fmt_rgb565   = 0;
+int    g_picodeck_chars_fmt_argb8888 = 0;
 
-void picos_charsfmt_report(const char *tag) {
+void picodeck_charsfmt_report(const char *tag) {
     fprintf(stderr, "CHARSFMT %s la8=%d rgb565=%d argb8888=%d\n",
             tag,
-            g_picos_chars_fmt_la8,
-            g_picos_chars_fmt_rgb565,
-            g_picos_chars_fmt_argb8888);
+            g_picodeck_chars_fmt_la8,
+            g_picodeck_chars_fmt_rgb565,
+            g_picodeck_chars_fmt_argb8888);
 }
 
-void picos_gfx_report(const char *tag) {
-    const size_t total = g_picos_pic_data_bytes + g_picos_pic_tex_bytes;
+void picodeck_gfx_report(const char *tag) {
+    const size_t total = g_picodeck_pic_data_bytes + g_picodeck_pic_tex_bytes;
     fprintf(stderr, "GFXSTAT %s pics=%d data=%u tex=%u total=%u peak=%u skipped=%d\n",
             tag,
-            g_picos_pic_count,
-            (unsigned)g_picos_pic_data_bytes,
-            (unsigned)g_picos_pic_tex_bytes,
+            g_picodeck_pic_count,
+            (unsigned)g_picodeck_pic_data_bytes,
+            (unsigned)g_picodeck_pic_tex_bytes,
             (unsigned)total,
-            (unsigned)g_picos_pic_bytes_peak,
-            g_picos_img_skip_count);
+            (unsigned)g_picodeck_pic_bytes_peak,
+            g_picodeck_img_skip_count);
 }
 
 /* OS tick during bulk asset loading: feeds the hardware watchdog and keeps
@@ -118,12 +118,12 @@ void picos_gfx_report(const char *tag) {
  * file operation would visibly slow loading.  Called from the file-op stubs
  * below so ANY long file-heavy stretch (campaign loads, asset scans) feeds
  * the watchdog without needing per-loop instrumentation in game code. */
-void picos_asset_load_tick(void) {
+void picodeck_asset_load_tick(void) {
     static uint32_t s_last_tick_ms = 0;
     static uint32_t s_last_report_ms = 0;
-    if (!g_picos_api || !g_picos_api->sys)
+    if (!g_picodeck_api || !g_picodeck_api->sys)
         return;
-    uint32_t now = g_picos_api->sys->getTimeMs();
+    uint32_t now = g_picodeck_api->sys->getTimeMs();
     if (now - s_last_tick_ms < 500)
         return;
     s_last_tick_ms = now;
@@ -134,10 +134,10 @@ void picos_asset_load_tick(void) {
      * still captured between ticks regardless of this cadence. */
     if (now - s_last_report_ms >= 1000) {
         s_last_report_ms = now;
-        picos_heap_report("load");
-        picos_gfx_report("load");
+        picodeck_heap_report("load");
+        picodeck_gfx_report("load");
     }
-    g_picos_api->sys->poll();
+    g_picodeck_api->sys->poll();
 }
 
 void * _sbrk(ptrdiff_t incr) {
@@ -161,20 +161,20 @@ static int  s_log_pos = 0;
 static void log_flush(void) {
     if (s_log_pos > 0) {
         s_log_buf[s_log_pos] = '\0';
-        g_picos_api->sys->log(s_log_buf);
+        g_picodeck_api->sys->log(s_log_buf);
         s_log_pos = 0;
     }
 }
 
-/* --- File System Stubs (mapped to PicOS FS API) --- */
+/* --- File System Stubs (mapped to PicoDeck FS API) --- */
 
 static pcfile_t g_fd_table[16] = {0};
 
-void picos_asset_load_tick(void); /* defined below */
+void picodeck_asset_load_tick(void); /* defined below */
 
 int _open(const char *name, int flags, int mode) {
     (void)mode;
-    picos_asset_load_tick();
+    picodeck_asset_load_tick();
     char full_path[256];
     if (name[0] != '/') {
         snprintf(full_path, sizeof(full_path), "%s/%s", g_app_dir, name);
@@ -183,13 +183,13 @@ int _open(const char *name, int flags, int mode) {
         full_path[sizeof(full_path) - 1] = '\0';
     }
 
-    const char *picos_mode = "rb";
-    if ((flags & 0x3) == 1) picos_mode = "wb";
-    else if ((flags & 0x3) == 2) picos_mode = "w+b";
+    const char *picodeck_mode = "rb";
+    if ((flags & 0x3) == 1) picodeck_mode = "wb";
+    else if ((flags & 0x3) == 2) picodeck_mode = "w+b";
 
     for (int i = 0; i < 16; i++) {
         if (g_fd_table[i] == NULL) {
-            g_fd_table[i] = g_picos_api->fs->open(full_path, picos_mode);
+            g_fd_table[i] = g_picodeck_api->fs->open(full_path, picodeck_mode);
             if (g_fd_table[i]) return i + 3;
             return -1;
         }
@@ -201,7 +201,7 @@ int _read(int file, char *ptr, int len) {
     if (file < 3) return 0;
     pcfile_t f = g_fd_table[file - 3];
     if (!f) return -1;
-    return g_picos_api->fs->read(f, ptr, len);
+    return g_picodeck_api->fs->read(f, ptr, len);
 }
 
 int _write(int file, char *ptr, int len) {
@@ -218,14 +218,14 @@ int _write(int file, char *ptr, int len) {
     if (file < 3) return -1;
     pcfile_t f = g_fd_table[file - 3];
     if (!f) return -1;
-    return g_picos_api->fs->write(f, ptr, len);
+    return g_picodeck_api->fs->write(f, ptr, len);
 }
 
 int _close(int file) {
     if (file < 3) return 0;
     pcfile_t f = g_fd_table[file - 3];
     if (!f) return -1;
-    g_picos_api->fs->close(f);
+    g_picodeck_api->fs->close(f);
     g_fd_table[file - 3] = NULL;
     return 0;
 }
@@ -235,16 +235,16 @@ int _lseek(int file, int ptr, int dir) {
     pcfile_t f = g_fd_table[file - 3];
     if (!f) return -1;
     uint32_t target = ptr;
-    if (dir == 1) target = g_picos_api->fs->tell(f) + ptr;
-    else if (dir == 2) target = g_picos_api->fs->fsize(f) + ptr;
-    g_picos_api->fs->seek(f, target);
-    return g_picos_api->fs->tell(f);
+    if (dir == 1) target = g_picodeck_api->fs->tell(f) + ptr;
+    else if (dir == 2) target = g_picodeck_api->fs->fsize(f) + ptr;
+    g_picodeck_api->fs->seek(f, target);
+    return g_picodeck_api->fs->tell(f);
 }
 
 int _fstat(int file, struct stat *st) {
     st->st_mode = S_IFREG;
     if (file < 3) st->st_mode = S_IFCHR;
-    st->st_size = (file >= 3 && g_fd_table[file-3]) ? g_picos_api->fs->fsize(g_fd_table[file-3]) : 0;
+    st->st_size = (file >= 3 && g_fd_table[file-3]) ? g_picodeck_api->fs->fsize(g_fd_table[file-3]) : 0;
     return 0;
 }
 
@@ -261,7 +261,7 @@ void _exit(int status) {
     char buf[64];
     snprintf(buf, sizeof(buf), "CDOGS _exit(%d) called", status);
     log_flush();
-    if (g_picos_api) g_picos_api->sys->log(buf);
+    if (g_picodeck_api) g_picodeck_api->sys->log(buf);
     longjmp(g_exit_jmp, status ? status : -1);
     __builtin_unreachable();
 }
@@ -277,7 +277,7 @@ char *getenv(const char *name) {
 void __assert_func(const char *file, int line, const char *func, const char *expr) {
     char buf[256];
     snprintf(buf, sizeof(buf), "ASSERT FAIL: %s:%d %s: %s", file, line, func ? func : "?", expr);
-    if (g_picos_api) g_picos_api->sys->log(buf);
+    if (g_picodeck_api) g_picodeck_api->sys->log(buf);
     fprintf(stderr, "%s\n", buf);
     _exit(1);
 }
@@ -289,7 +289,7 @@ int _link(const char *old, const char *new_) { (void)old; (void)new_; return -1;
 
 int stat(const char *path, struct stat *buf) {
     if (!buf) return -1;
-    picos_asset_load_tick();
+    picodeck_asset_load_tick();
     memset(buf, 0, sizeof(*buf));
     /* Try to open the file to check existence */
     char full_path[256];
@@ -305,12 +305,12 @@ int stat(const char *path, struct stat *buf) {
      * logic here reported every existing directory as S_IFREG, which made
      * tinydir's is_dir false for all campaign folders (and reported missing
      * paths as directories). */
-    if (g_picos_api->fs->exists(full_path)) {
-        pcfile_t f = g_picos_api->fs->open(full_path, "rb");
+    if (g_picodeck_api->fs->exists(full_path)) {
+        pcfile_t f = g_picodeck_api->fs->open(full_path, "rb");
         if (f) {
             buf->st_mode = S_IFREG | 0644;
-            buf->st_size = g_picos_api->fs->fsize(f);
-            g_picos_api->fs->close(f);
+            buf->st_size = g_picodeck_api->fs->fsize(f);
+            g_picodeck_api->fs->close(f);
         } else {
             buf->st_mode = S_IFDIR | 0755;
         }
@@ -330,7 +330,7 @@ int access(const char *path, int mode) {
         strncpy(full_path, path, sizeof(full_path) - 1);
         full_path[sizeof(full_path) - 1] = '\0';
     }
-    return g_picos_api->fs->exists(full_path) ? 0 : -1;
+    return g_picodeck_api->fs->exists(full_path) ? 0 : -1;
 }
 
 char *getcwd(char *buf, size_t size) {
@@ -377,12 +377,12 @@ typedef struct {
     int count;
     int pos;
     int in_use;
-} picos_dir_t;
+} picodeck_dir_t;
 
-static picos_dir_t s_dir_pool[DIR_POOL_SIZE];
+static picodeck_dir_t s_dir_pool[DIR_POOL_SIZE];
 
 static void dir_list_cb(const char *name, bool is_dir, uint32_t size, void *user) {
-    picos_dir_t *d = (picos_dir_t *)user;
+    picodeck_dir_t *d = (picodeck_dir_t *)user;
     (void)is_dir;
     (void)size;
     if (d->count < MAX_DIR_ENTRIES) {
@@ -393,9 +393,9 @@ static void dir_list_cb(const char *name, bool is_dir, uint32_t size, void *user
 }
 
 DIR *opendir(const char *name) {
-    picos_asset_load_tick();
+    picodeck_asset_load_tick();
     /* Find a free slot in the pool */
-    picos_dir_t *d = NULL;
+    picodeck_dir_t *d = NULL;
     int slot = -1;
     for (int i = 0; i < DIR_POOL_SIZE; i++) {
         if (!s_dir_pool[i].in_use) {
@@ -421,7 +421,7 @@ DIR *opendir(const char *name) {
     d->count = 0;
     d->pos = 0;
     d->in_use = 1;
-    g_picos_api->fs->listDir(full_path, dir_list_cb, d);
+    g_picodeck_api->fs->listDir(full_path, dir_list_cb, d);
     /* Only log anomalies — per-dir logging at 115200 baud adds seconds of
      * blocking printf to every asset scan. */
     if (d->count >= MAX_DIR_ENTRIES)
@@ -435,7 +435,7 @@ DIR *opendir(const char *name) {
 static struct dirent s_dirent;
 
 struct dirent *readdir(DIR *dirp) {
-    picos_dir_t *d = (picos_dir_t *)dirp;
+    picodeck_dir_t *d = (picodeck_dir_t *)dirp;
     if (!d || d->pos >= d->count) return NULL;
 
     memset(&s_dirent, 0, sizeof(s_dirent));
@@ -445,7 +445,7 @@ struct dirent *readdir(DIR *dirp) {
 }
 
 int closedir(DIR *dirp) {
-    picos_dir_t *d = (picos_dir_t *)dirp;
+    picodeck_dir_t *d = (picodeck_dir_t *)dirp;
     if (d) d->in_use = 0;
     return 0;
 }
@@ -472,8 +472,8 @@ char *basename(char *path) {
 
 int _gettimeofday(struct timeval *tv, void *tz) {
     (void)tz;
-    if (tv && g_picos_api) {
-        uint32_t ms = g_picos_api->sys->getTimeMs();
+    if (tv && g_picodeck_api) {
+        uint32_t ms = g_picodeck_api->sys->getTimeMs();
         tv->tv_sec = ms / 1000;
         tv->tv_usec = (ms % 1000) * 1000;
     }

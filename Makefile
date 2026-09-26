@@ -1,4 +1,4 @@
-# PicOS C-Dogs SDL Native App Build
+# PicoDeck C-Dogs SDL Native App Build
 
 CC      = arm-none-eabi-gcc
 CFLAGS  = -mcpu=cortex-m33 -mthumb -std=gnu11 \
@@ -18,10 +18,10 @@ CFLAGS  = -mcpu=cortex-m33 -mthumb -std=gnu11 \
           -Isrc/src \
           -Isrc/src/cdogs \
           -Isrc/src/cdogs/yajl/api \
-          -DPICOS \
+          -DPICODECK \
           -DSTBI_NO_THREAD_LOCALS
 LDFLAGS = -T sdk/native/linker.ld \
-          -Wl,--entry=picos_main \
+          -Wl,--entry=picodeck_main \
           -Wl,-pie \
           -Wl,--gc-sections \
           -Wl,--no-warn-rwx-segments \
@@ -60,10 +60,10 @@ BASE64_SRCS = $(wildcard src/src/base64/*.c)
 # Proto (nanopb generated — needed for game event types)
 PROTO_SRCS = src/src/proto/msg.pb.c
 
-# PicOS platform
-PICOS_SRCS = cdogs_picos.c stubs.c net_stubs.c picos_sdl_impl.c
+# PicoDeck platform
+PICODECK_SRCS = cdogs_picodeck.c stubs.c net_stubs.c picodeck_sdl_impl.c
 
-SRCS = $(PICOS_SRCS) \
+SRCS = $(PICODECK_SRCS) \
        $(CDOGS_SRCS) $(DRAW_SRCS) $(HUD_SRCS) $(COLLISION_SRCS) \
        $(HASHMAP_SRCS) $(YAJL_SRCS) $(MATHC_SRCS) $(EASING_SRCS) \
        $(GAME_SRCS) $(JSON_SRCS) $(BASE64_SRCS) $(PROTO_SRCS)
@@ -71,7 +71,7 @@ SRCS = $(PICOS_SRCS) \
 TARGET = main.elf
 
 # Upstream generates src/src/cdogs/sys_config.h with CMake (and git-ignores it);
-# the PicOS variant is the tracked sys_config.h at the repo root, staged here.
+# the PicoDeck variant is the tracked sys_config.h at the repo root, staged here.
 GEN_SYS_CONFIG = src/src/cdogs/sys_config.h
 
 .PHONY: all clean syntax-check
